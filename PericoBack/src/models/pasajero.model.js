@@ -1,0 +1,42 @@
+const { DataTypes } = require('sequelize');
+const sequelize = require('../../config/database'); // Asegúrate de que la ruta apunte a tu archivo
+
+const Pasajero = sequelize.define(
+    'Pasajero',
+    {
+      idPasajero: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      idUsuario: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        unique: true,
+        references: {
+          model: 'usuarios',
+          key: 'idUsuario',
+        },
+      },
+      calificacion: {
+        type: DataTypes.DECIMAL(3, 2),
+        defaultValue: 0,
+      },
+      cantidadReservas: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+      },
+      estadoPasajero: {
+        type: DataTypes.ENUM('ACTIVO', 'SUSPENDIDO', 'BLOQUEADO'),
+        allowNull: false,
+        defaultValue: 'ACTIVO',
+      },
+    },
+    {
+      tableName: 'pasajeros',
+      timestamps: true,
+    }
+  );
+
+module.exports = Pasajero;
+

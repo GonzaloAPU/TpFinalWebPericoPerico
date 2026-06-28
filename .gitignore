@@ -1,0 +1,19 @@
+# Dependencias
+PericoBack/node_modules/
+PericoFront/node_modules/
+
+# Variables de entorno
+PericoBack/.env
+PericoFront/.env
+
+# Carpetas auxiliares
+.agents/
+.vscode/
+
+# Compilaciones
+PericoBack/dist/
+PericoFront/dist/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db

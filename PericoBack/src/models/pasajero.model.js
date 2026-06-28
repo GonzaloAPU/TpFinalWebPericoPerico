@@ -1,6 +1,8 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database'); // Asegúrate de que la ruta apunte a tu archivo
 
+// Modelo del perfil de pasajero.
+// Se vincula con Usuario mediante idUsuario para reutilizar los datos comunes.
 const Pasajero = sequelize.define(
     'Pasajero',
     {
@@ -13,6 +15,7 @@ const Pasajero = sequelize.define(
         type: DataTypes.INTEGER,
         allowNull: false,
         unique: true,
+        // FK hacia usuarios. Cada pasajero pertenece a un usuario.
         references: {
           model: 'usuarios',
           key: 'idUsuario',
@@ -39,4 +42,3 @@ const Pasajero = sequelize.define(
   );
 
 module.exports = Pasajero;
-

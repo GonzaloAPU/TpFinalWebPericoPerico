@@ -1,5 +1,6 @@
 const { sequelize, Usuario, Chofer } = require('../models/relaciones');
 
+// Evita devolver el passwordHash en las respuestas del servidor.
 const quitarPassword = (usuario) => {
   const usuarioSinPassword = usuario.toJSON();
   delete usuarioSinPassword.passwordHash;
@@ -24,6 +25,7 @@ const registrarChofer = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
+    // Primero se crea el Usuario con los datos comunes.
     const usuario = await Usuario.create(
       {
         nombre,
@@ -36,6 +38,7 @@ const registrarChofer = async (req, res) => {
       { transaction }
     );
 
+    // Luego se crea el perfil Chofer asociado al Usuario.
     const chofer = await Chofer.create(
       {
         idUsuario: usuario.idUsuario,
@@ -66,6 +69,7 @@ const registrarChofer = async (req, res) => {
 
 const obtenerChoferes = async (req, res) => {
   try {
+    // Trae los choferes junto con los datos del usuario relacionado.
     const choferes = await Chofer.findAll({
       include: [
         {

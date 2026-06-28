@@ -3,6 +3,8 @@ const sequelize = require('../../config/database'); // Asegúrate de que la ruta
 
 
 
+// Modelo del perfil de chofer.
+// Se vincula con Usuario mediante idUsuario para reutilizar los datos comunes.
 const Chofer = sequelize.define(
   'Chofer',
   {
@@ -15,6 +17,7 @@ const Chofer = sequelize.define(
         type: DataTypes.INTEGER,
         allowNull: false,
         unique: true,
+        // FK hacia usuarios. Cada chofer pertenece a un usuario.
         references: {
           model: 'usuarios',
           key: 'idUsuario',
@@ -52,4 +55,3 @@ const Chofer = sequelize.define(
   );
 
 module.exports = Chofer;
-

@@ -1,6 +1,8 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database'); // Asegúrate de que la ruta apunte a tu archivo
 
+// Modelo base del sistema.
+// Aca van los datos comunes que pueden compartir pasajeros y choferes.
 const Usuario = sequelize.define(
     'Usuario',
     {
@@ -42,4 +44,3 @@ const Usuario = sequelize.define(
   );
 
   module.exports = Usuario;
-

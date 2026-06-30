@@ -27,26 +27,34 @@ turnoCtrl.getTurnos = async (req,res) =>{
 }
 
 
-// Editar datos del turno
-turnoCtrl.editTurno = async (req,res) =>{
+// Editar datos del turno 
+turnoCtrl.editTurno = async (req, res) => {
     try {
-        const id = req.params.id; 
+        
+        const { idChofer, idAuto } = req.body; 
 
-        const turno = await TurnoChofer.findByPk(id);
+        const turno = await TurnoChofer.findOne({
+            where: { idChofer, idAuto }
+        });
+
         if (!turno) {
             return res.status(404).json({ status: '0', msg: 'El turno que intentas editar no existe.' });
         }
 
-        await Auto.update(req.body, {
-            where: { id: req.body.id }
+        // Actualizamos los campos (fecha, horaInicio, horaFin) usando la clave compuesta
+        await TurnoChofer.update(req.body, {
+            where: { 
+                idChofer: idChofer,
+                idAuto: idAuto
+            }
         });
 
         res.json({ status: '1', msg: 'Auto updated' });
-    } catch (error) {
+        
+     } catch (error) {
     res.status(400).json({ status: '0', msg: 'Error procesando la operacion' });
     }
 }
-
 
 // Eliminar turno
 turnoCtrl.deleteTurno = async (req,res) =>{

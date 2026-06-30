@@ -92,6 +92,4 @@ autoCtrl.deleteAuto = async (req, res) => {
 };
 
 
-
-
 module.exports = autoCtrl;

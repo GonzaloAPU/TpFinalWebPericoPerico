@@ -4,6 +4,9 @@ const Usuario = require('./usuario.model');
 const Pasajero = require('./pasajero.model');
 const Chofer = require('./chofer.model');
 
+const Auto = require('./auto.model'); 
+const TurnoChofer = require('./turnoChofer.js');
+
 // En este proyecto Usuario funciona como una "superclase" conceptual.
 // Pasajero y Chofer comparten los datos comunes del usuario:
 // nombre, apellido, email, password, telefono y estado activo.
@@ -50,9 +53,34 @@ Chofer.belongsTo(Usuario, {
   onUpdate: 'CASCADE',
 });
 
+
+// RELACIÓN MUCHOS A MUCHOS (CHOFER <-> AUTO) 
+// Un Chofer puede conducir varios autos en el dia a dia
+Chofer.belongsToMany(Auto, { 
+  through: TurnoChofer, 
+  foreignKey: 'idChofer', // Clave foránea en turno_chofer que apunta a Chofer
+  otherKey: 'idAuto',     // La otra clave que apunta a Auto
+  as: 'autos',            //alias
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+// Un Auto puede ser conducido por muchos choferes
+Auto.belongsToMany(Chofer, { 
+  through: TurnoChofer, 
+  foreignKey: 'idAuto',   // Clave foránea en turnos_chofer que apunta a Auto
+  otherKey: 'idChofer',   // La otra clave que apunta a Chofer
+  as: 'choferes',         // alias
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+});
+
+
 module.exports = {
     sequelize,
     Usuario,
     Pasajero,
     Chofer,
+    Auto,         
+    TurnoChofer
 };

@@ -11,6 +11,8 @@ app.use(express.json());
 app.set('port',process.env.PORT || 3000);
 app.use('/api/pasajeros', require('./src/routes/pasajero.routes'));
 app.use('/api/choferes', require('./src/routes/chofer.routes'));
+app.use('/api/autos', require('./src/routes/auto.routes'));
+app.use('/api/turnos', require('./src/routes/turnoChofer.routes'));
 
 sequelize.sync({ force: false })
   .then(() => {

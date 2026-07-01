@@ -7,6 +7,8 @@ const Chofer = require('./chofer.model');
 const Auto = require('./auto.model'); 
 const TurnoChofer = require('./turnoChofer.js');
 
+const Reserva = require('./reserva.model');
+
 // En este proyecto Usuario funciona como una "superclase" conceptual.
 // Pasajero y Chofer comparten los datos comunes del usuario:
 // nombre, apellido, email, password, telefono y estado activo.
@@ -82,5 +84,6 @@ module.exports = {
     Pasajero,
     Chofer,
     Auto,         
-    TurnoChofer
+    TurnoChofer,
+    Reserva
 };

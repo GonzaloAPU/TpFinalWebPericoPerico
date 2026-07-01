@@ -14,6 +14,7 @@ app.use('/api/choferes', require('./src/routes/chofer.routes'));
 app.use('/api/autos', require('./src/routes/auto.routes'));
 app.use('/api/turnos', require('./src/routes/turnoChofer.routes'));
 app.use('/api/viajes', require('./src/routes/viaje.routes'));
+app.use('/api/reservas', require('./src/routes/reserva.routes'));
 
 sequelize.sync({ force: false })
   .then(() => {

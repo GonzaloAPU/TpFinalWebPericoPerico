@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database'); // Asegúrate de que la ruta apunte a tu archivo
+const Reserva = require('./reserva.model');
 
 // Modelo del perfil de pasajero.
 // Se vincula con Usuario mediante idUsuario para reutilizar los datos comunes.
@@ -40,5 +41,13 @@ const Pasajero = sequelize.define(
       timestamps: true,
     }
   );
+
+// Un pasajero puede realizar muchas reservas
+Pasajero.hasMany(Reserva, {
+    as: 'reservas',
+    foreignKey: 'idPasajero',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+});
 
 module.exports = Pasajero;

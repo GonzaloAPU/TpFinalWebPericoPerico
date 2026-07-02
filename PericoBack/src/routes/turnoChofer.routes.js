@@ -6,7 +6,7 @@ const router = express.Router();
 //definimos las rutas para la gestion de agente
 router.get('/', turnoChoferCtrl.getTurnos);
 router.post('/', turnoChoferCtrl.createTurno);
-router.put('/',turnoChoferCtrl.editTurno )
+router.put('/:id',turnoChoferCtrl.editTurno )
 router.delete('/:id',turnoChoferCtrl.deleteTurno)
 
 //exportamos el modulo de rutas

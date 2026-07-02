@@ -35,6 +35,7 @@ pasajeroCtrl.registrarPasajero = async (req, res) => {
         passwordHash,
         telefono,
         activo,
+        rol: 'PASAJERO',
       },
       { transaction }
     );

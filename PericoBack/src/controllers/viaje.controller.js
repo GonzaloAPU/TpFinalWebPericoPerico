@@ -76,9 +76,12 @@ viajeCtrl.createViaje = async (req, res) => {
 // Editar datos del viaje
 viajeCtrl.editViaje = async (req, res) => {
     try {
-        await Viaje.update(req.body, {
-            where: { idViaje: req.body.idViaje } 
+        const [actualizados] = await Viaje.update(req.body, {
+            where: { idViaje: req.params.id } 
         });
+        if (actualizados === 0) {
+            return res.status(404).json({ status: '0', msg: 'Viaje no encontrado.' });
+        }
         res.json({ status: '1', msg: 'Viaje actualizado con éxito.' });
     } catch (error) {
         res.status(400).json({ status: '0', msg: 'Error procesando la operación.' });

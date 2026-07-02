@@ -36,6 +36,7 @@ choferCtrl.registrarChofer = async (req, res) => {
         passwordHash,
         telefono,
         activo,
+        rol: 'CHOFER',
       },
       { transaction }
     );

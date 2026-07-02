@@ -6,5 +6,4 @@ const router = express.Router();
 router.get('/', pasajeroCtrl.obtenerPasajeros);
 router.post('/', pasajeroCtrl.registrarPasajero);
 
-
 module.exports = router;

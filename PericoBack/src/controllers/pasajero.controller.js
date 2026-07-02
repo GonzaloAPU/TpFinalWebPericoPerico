@@ -90,4 +90,5 @@ pasajeroCtrl.obtenerPasajeros = async (req, res) => {
   }
 };
 
+
 module.exports = pasajeroCtrl;

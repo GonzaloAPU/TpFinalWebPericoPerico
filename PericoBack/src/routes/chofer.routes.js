@@ -6,4 +6,16 @@ const router = express.Router();
 router.get('/', choferCtrl.obtenerChoferes);
 router.post('/', choferCtrl.registrarChofer);
 
+// Frontend: trae datos completos del chofer.
+router.get('/:idChofer', choferCtrl.obtenerChoferPorId);
+
+// Frontend: cambia el estado del chofer (DISPONIBLE, DESCANSO, EN_VIAJE, etc.).
+router.patch('/:idChofer/estado', choferCtrl.cambiarEstadoChofer);
+
+// Frontend: trae todos los autos relacionados a ese chofer.
+router.get('/:idChofer/autos', choferCtrl.obtenerAutosDelChofer);
+
+// Frontend: trae los viajes del boton "Ver Mis Viajes".
+router.get('/:idChofer/viajes', choferCtrl.obtenerViajesDelChofer);
+
 module.exports = router;

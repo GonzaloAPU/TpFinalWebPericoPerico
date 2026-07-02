@@ -1,9 +1,9 @@
 const express = require('express');
-const choferController = require('../controllers/chofer.controller');
+const choferCtrl = require('../controllers/chofer.controller');
 
 const router = express.Router();
 
-router.get('/', choferController.obtenerChoferes);
-router.post('/', choferController.registrarChofer);
+router.get('/', choferCtrl.obtenerChoferes);
+router.post('/', choferCtrl.registrarChofer);
 
 module.exports = router;

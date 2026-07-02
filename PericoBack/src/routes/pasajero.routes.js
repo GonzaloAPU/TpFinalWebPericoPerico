@@ -1,10 +1,10 @@
 const express = require('express');
-const pasajeroController = require('../controllers/pasajero.controller');
+const pasajeroCtrl = require('../controllers/pasajero.controller');
 
 const router = express.Router();
 
-router.get('/', pasajeroController.obtenerPasajeros);
-router.post('/', pasajeroController.registrarPasajero);
+router.get('/', pasajeroCtrl.obtenerPasajeros);
+router.post('/', pasajeroCtrl.registrarPasajero);
 
 
 module.exports = router;

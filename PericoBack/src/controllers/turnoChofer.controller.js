@@ -1,10 +1,10 @@
 const TurnoChofer = require('../models/turnoChofer'); 
 const Auto = require('../models/auto.model');
 const Chofer = require('../models/chofer.model');
-const turnoCtrl = {};
+const turnoChoferCtrl = {};
 
 // Registrar nuevo turno
-turnoCtrl.createTurno = async (req, res) => {
+turnoChoferCtrl.createTurno = async (req, res) => {
     try {
         // req.body debe recibir: idAuto, idChofer, fecha, horaInicio, horaFin
         const nuevoTurno = await TurnoChofer.create(req.body);
@@ -17,7 +17,7 @@ turnoCtrl.createTurno = async (req, res) => {
 
 
 // Obtener todos los turnos
-turnoCtrl.getTurnos = async (req,res) =>{
+turnoChoferCtrl.getTurnos = async (req,res) =>{
     try{
         const turnos = await TurnoChofer.findAll()
         res.json(turnos)
@@ -28,36 +28,36 @@ turnoCtrl.getTurnos = async (req,res) =>{
 
 
 // Editar datos del turno 
-turnoCtrl.editTurno = async (req, res) => {
-    try {
-        
-        const { idChofer, idAuto } = req.body; 
 
-        const turno = await TurnoChofer.findOne({
-            where: { idChofer, idAuto }
-        });
+turnoChoferCtrl.editTurno = async (req, res) => {
+  try {
+    const [actualizados] = await TurnoChofer.update(req.body, {
+      where: {
+        idTurnoChofer: req.params.id
+      }
+    });
 
-        if (!turno) {
-            return res.status(404).json({ status: '0', msg: 'El turno que intentas editar no existe.' });
-        }
-
-        // Actualizamos los campos (fecha, horaInicio, horaFin) usando la clave compuesta
-        await TurnoChofer.update(req.body, {
-            where: { 
-                idChofer: idChofer,
-                idAuto: idAuto
-            }
-        });
-
-        res.json({ status: '1', msg: 'Auto updated' });
-        
-     } catch (error) {
-    res.status(400).json({ status: '0', msg: 'Error procesando la operacion' });
+    if (actualizados === 0) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Turno no encontrado.'
+      });
     }
-}
 
+    return res.status(200).json({
+      status: '1',
+      msg: 'Turno actualizado.'
+    });
+  } catch (error) {
+    return res.status(400).json({
+      status: '0',
+      msg: 'Error procesando la operación.',
+      error: error.message
+    });
+  }
+};
 // Eliminar turno
-turnoCtrl.deleteTurno = async (req,res) =>{
+/*turnoChoferCtrl.deleteTurno = async (req,res) =>{
     try {
         await TurnoChofer.destroy({
             where: { id: req.params.id }
@@ -67,7 +67,35 @@ turnoCtrl.deleteTurno = async (req,res) =>{
     } catch (error) {
         res.status(400).json({ status: '0', msg: 'Error procesando la operacion' });
     }
-}
+}*/
+
+turnoChoferCtrl.deleteTurno = async (req, res) => {
+  try {
+    const eliminados = await TurnoChofer.destroy({
+      where: {
+        idTurnoChofer: req.params.id
+      }
+    });
+
+    if (eliminados === 0) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Turno no encontrado.'
+      });
+    }
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Turno eliminado.'
+    });
+  } catch (error) {
+    return res.status(400).json({
+      status: '0',
+      msg: 'Error procesando la operación.',
+      error: error.message
+    });
+  }
+};
 
 
-module.exports = turnoCtrl;
+module.exports = turnoChoferCtrl;

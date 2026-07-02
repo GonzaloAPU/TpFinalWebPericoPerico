@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/', viajeCtrl.getViajes);
 router.get('/:id', viajeCtrl.getViaje);
 router.post('/', viajeCtrl.createViaje);
-router.put('/', viajeCtrl.editViaje);
+router.put('/:id', viajeCtrl.editViaje);
 router.patch('/:id/estado', viajeCtrl.changeEstado);
 router.delete('/:id', viajeCtrl.deleteViaje);
 

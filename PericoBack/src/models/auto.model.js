@@ -2,7 +2,12 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('./../../config/database'); 
 
 const Auto = sequelize.define('Auto', {
-    patente: {type: DataTypes.STRING, allowNull: false},
+     idAuto: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    patente: {type: DataTypes.STRING, allowNull: false, unique: true },
     marca: {type: DataTypes.STRING, allowNull: false},
     modelo: {type: DataTypes.STRING, allowNull: false},
     capacidadAsientos: {type: DataTypes.INTEGER, allowNull: false},
@@ -16,13 +21,13 @@ const Auto = sequelize.define('Auto', {
     timestamps: true, // Crea automáticamente los campos createdAt y updatedAt
 });
 
-Auto.associate = (models) => {
+/*Auto.associate = (models) => {
     // Esto le avisa al sistema que Auto se conecta con Chofer mediante TurnoChofer
     Auto.belongsToMany(models.Chofer, { 
         through: models.TurnoChofer, 
         foreignKey: 'idAuto',
         otherKey: 'idChofer',
         as: 'choferes'
-    })};
+    })};*/
 
 module.exports = Auto;

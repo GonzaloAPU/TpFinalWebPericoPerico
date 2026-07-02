@@ -25,7 +25,7 @@ const Reserva = sequelize.define(
       allowNull: false,
       references: {
         model: 'viajes',
-        key: 'id',
+        key: 'idViaje',
       },
     },
 

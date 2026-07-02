@@ -1,6 +1,6 @@
-const { sequelize, Usuario, Chofer } = require('../models/relaciones');
+const { sequelize, Usuario, Admin } = require('../models/relaciones');
 
-const choferCtrl = {};
+const adminCtrl = {};
 
 // Evita devolver el passwordHash en las respuestas del servidor.
 const quitarPassword = (usuario) => {
@@ -10,7 +10,7 @@ const quitarPassword = (usuario) => {
   return usuarioSinPassword;
 };
 
-choferCtrl.registrarChofer = async (req, res) => {
+adminCtrl.registrarAdmin = async (req, res) => {
   const {
     nombre,
     apellido,
@@ -18,10 +18,7 @@ choferCtrl.registrarChofer = async (req, res) => {
     passwordHash,
     telefono,
     activo,
-    licenciaConducir,
-    estadoChofer,
-    fechaHabilitacion,
-    calificacion,
+    estadoAdmin,
   } = req.body;
 
   const transaction = await sequelize.transaction();
@@ -36,18 +33,16 @@ choferCtrl.registrarChofer = async (req, res) => {
         passwordHash,
         telefono,
         activo,
+        rol: 'ADMIN',
       },
       { transaction }
     );
 
-    // Luego se crea el perfil Chofer asociado al Usuario.
-    const chofer = await Chofer.create(
+    // Luego se crea el perfil Admin asociado al Usuario.
+    const admin = await Admin.create(
       {
         idUsuario: usuario.idUsuario,
-        licenciaConducir,
-        estadoChofer,
-        fechaHabilitacion,
-        calificacion,
+        estadoAdmin,
       },
       { transaction }
     );
@@ -55,24 +50,24 @@ choferCtrl.registrarChofer = async (req, res) => {
     await transaction.commit();
 
     return res.status(201).json({
-      mensaje: 'Chofer registrado correctamente',
+      mensaje: 'Admin registrado correctamente',
       usuario: quitarPassword(usuario),
-      chofer,
+      admin,
     });
   } catch (error) {
     await transaction.rollback();
 
     return res.status(400).json({
-      mensaje: 'No se pudo registrar el chofer',
+      mensaje: 'No se pudo registrar el admin',
       error: error.message,
     });
   }
 };
 
-choferCtrl.obtenerChoferes = async (req, res) => {
+adminCtrl.obtenerAdmins = async (req, res) => {
   try {
-    // Trae los choferes junto con los datos del usuario relacionado.
-    const choferes = await Chofer.findAll({
+    // Trae los admins junto con los datos del usuario relacionado.
+    const admins = await Admin.findAll({
       include: [
         {
           model: Usuario,
@@ -82,13 +77,13 @@ choferCtrl.obtenerChoferes = async (req, res) => {
       ],
     });
 
-    return res.status(200).json(choferes);
+    return res.status(200).json(admins);
   } catch (error) {
     return res.status(500).json({
-      mensaje: 'Error al obtener los choferes',
+      mensaje: 'Error al obtener los admins',
       error: error.message,
     });
   }
 };
 
-module.exports = choferCtrl;
+module.exports = adminCtrl;

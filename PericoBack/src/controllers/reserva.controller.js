@@ -1,6 +1,8 @@
 const { Reserva } = require('../models/relaciones');
 
-const registrarReserva = async (req, res) => {
+const reservaCtrl = {};
+
+reservaCtrl.registrarReserva = async (req, res) => {
   try {
     const reserva = await Reserva.create(req.body);
 
@@ -16,9 +18,20 @@ const registrarReserva = async (req, res) => {
   }
 };
 
-const obtenerReservas = async (req, res) => {
+reservaCtrl.obtenerReservas = async (req, res) => {
   try {
-    const reservas = await Reserva.findAll();
+    const reservas = await Reserva.findAll({
+  include: [
+    {
+      association: 'pasajero',
+      include: ['usuario']
+    },
+    {
+      association: 'viaje',
+      include: ['chofer', 'auto']
+    }
+  ]
+});
 
     res.status(200).json(reservas);
   } catch (error) {
@@ -29,7 +42,4 @@ const obtenerReservas = async (req, res) => {
   }
 };
 
-module.exports = {
-  registrarReserva,
-  obtenerReservas
-};
+module.exports = reservaCtrl;

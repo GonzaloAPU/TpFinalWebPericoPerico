@@ -40,16 +40,44 @@ autoCtrl.createAuto = async (req, res) =>{
 
 
 // Editar datos del auto
-autoCtrl.editAuto = async (req,res) =>{
+/*autoCtrl.editAuto = async (req,res) =>{
     try{
         await Auto.update(req.body, {
-            where: { id: req.body.id }
+            where: { idAuto: req.body.id }
         });
         res.json({ status: '1', msg: 'Auto updated' });
     }  catch (error) {
     res.status(400).json({ status: '0', msg: 'Error procesando la operacion' });
     }
-}
+}*/
+
+autoCtrl.editAuto = async (req, res) => {
+  try {
+    const [actualizados] = await Auto.update(req.body, {
+      where: {
+        idAuto: req.params.id
+      }
+    });
+
+    if (actualizados === 0) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Auto no encontrado.'
+      });
+    }
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Auto actualizado.'
+    });
+  } catch (error) {
+    return res.status(400).json({
+      status: '0',
+      msg: 'Error procesando la operación.',
+      error: error.message
+    });
+  }
+};
 
 
 // Cambiar estado del auto
@@ -83,7 +111,7 @@ autoCtrl.changeEstado = async (req, res) => {
 autoCtrl.deleteAuto = async (req, res) => {
     try {
         await Auto.destroy({
-            where: { id: req.params.id }
+            where: { idAuto: req.params.id }
         });
         res.json({ status: '1', msg: 'Auto removed' });
     } catch (error) {

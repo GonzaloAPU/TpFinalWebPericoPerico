@@ -34,7 +34,8 @@ const Chofer = sequelize.define(
           'EN_VIAJE',
           'DESCANSO',
           'SUSPENDIDO',
-          'INACTIVO'
+          'INACTIVO',
+          'ELIMINADO'
         ),
         allowNull: false,
         defaultValue: 'DISPONIBLE',

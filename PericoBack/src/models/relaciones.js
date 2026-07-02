@@ -1,25 +1,27 @@
 const sequelize = require('../../config/database');
 
+// Modelos base y perfiles de usuario.
 const Usuario = require('./usuario.model');
 const Pasajero = require('./pasajero.model');
 const Chofer = require('./chofer.model');
+const Admin = require('./admin.model');
 
-const Auto = require('./auto.model'); 
+// Modelos operativos del sistema.
+const Auto = require('./auto.model');
 const TurnoChofer = require('./turnoChofer.js');
-
+const Viaje = require('./viaje.model');
 const Reserva = require('./reserva.model');
 
-// En este proyecto Usuario funciona como una "superclase" conceptual.
-// Pasajero y Chofer comparten los datos comunes del usuario:
-// nombre, apellido, email, password, telefono y estado activo.
+// ---------------------------------------------------------------------------
+// Usuario y perfiles
+// ---------------------------------------------------------------------------
+// Usuario funciona como una "superclase" conceptual.
+// Aca se guardan los datos comunes: nombre, apellido, email, password,
+// telefono, activo y rol.
 //
-// En JavaScript con Sequelize no estamos usando herencia de clases.
-// Lo armamos con relaciones entre tablas:
-// - Un Usuario puede tener un perfil de Pasajero.
-// - Un Usuario puede tener un perfil de Chofer.
-// - Cada Pasajero o Chofer pertenece a un solo Usuario.
-//
-// Esto evita repetir los mismos campos en pasajeros y choferes.
+// Pasajero, Chofer y Admin guardan solo los datos propios de cada perfil.
+// Cada perfil se relaciona con un Usuario mediante idUsuario.
+
 Usuario.hasOne(Pasajero, {
   foreignKey: 'idUsuario',
   as: 'perfilPasajero',
@@ -27,8 +29,6 @@ Usuario.hasOne(Pasajero, {
   onUpdate: 'CASCADE',
 });
 
-// Pasajero guarda solo los datos propios del pasajero.
-// El resto de los datos personales se consultan desde Usuario.
 Pasajero.belongsTo(Usuario, {
   foreignKey: 'idUsuario',
   as: 'usuario',
@@ -36,9 +36,6 @@ Pasajero.belongsTo(Usuario, {
   onUpdate: 'CASCADE',
 });
 
-// Relacion entre Usuario y Chofer.
-// El alias perfilChofer permite incluir o consultar el perfil de chofer
-// desde un usuario.
 Usuario.hasOne(Chofer, {
   foreignKey: 'idUsuario',
   as: 'perfilChofer',
@@ -46,8 +43,6 @@ Usuario.hasOne(Chofer, {
   onUpdate: 'CASCADE',
 });
 
-// Chofer guarda solo los datos propios del chofer.
-// Los datos comunes siguen estando en la tabla usuarios.
 Chofer.belongsTo(Usuario, {
   foreignKey: 'idUsuario',
   as: 'usuario',
@@ -55,35 +50,118 @@ Chofer.belongsTo(Usuario, {
   onUpdate: 'CASCADE',
 });
 
-
-// RELACIÓN MUCHOS A MUCHOS (CHOFER <-> AUTO) 
-// Un Chofer puede conducir varios autos en el dia a dia
-Chofer.belongsToMany(Auto, { 
-  through: TurnoChofer, 
-  foreignKey: 'idChofer', // Clave foránea en turno_chofer que apunta a Chofer
-  otherKey: 'idAuto',     // La otra clave que apunta a Auto
-  as: 'autos',            //alias
+Usuario.hasOne(Admin, {
+  foreignKey: 'idUsuario',
+  as: 'perfilAdmin',
   onDelete: 'CASCADE',
-  onUpdate: 'CASCADE'
+  onUpdate: 'CASCADE',
 });
 
-// Un Auto puede ser conducido por muchos choferes
-Auto.belongsToMany(Chofer, { 
-  through: TurnoChofer, 
-  foreignKey: 'idAuto',   // Clave foránea en turnos_chofer que apunta a Auto
-  otherKey: 'idChofer',   // La otra clave que apunta a Chofer
-  as: 'choferes',         // alias
+Admin.belongsTo(Usuario, {
+  foreignKey: 'idUsuario',
+  as: 'usuario',
   onDelete: 'CASCADE',
-  onUpdate: 'CASCADE'
+  onUpdate: 'CASCADE',
 });
 
+// ---------------------------------------------------------------------------
+// Choferes, autos y turnos
+// ---------------------------------------------------------------------------
+// Chofer y Auto tienen una relacion muchos a muchos.
+// TurnoChofer es la tabla intermedia que registra que chofer usa que auto
+// y en que horario.
+
+Chofer.belongsToMany(Auto, {
+  through: TurnoChofer,
+  foreignKey: 'idChofer',
+  otherKey: 'idAuto',
+  as: 'autos',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+
+Auto.belongsToMany(Chofer, {
+  through: TurnoChofer,
+  foreignKey: 'idAuto',
+  otherKey: 'idChofer',
+  as: 'choferes',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+
+// ---------------------------------------------------------------------------
+// Viajes
+// ---------------------------------------------------------------------------
+// Un viaje es realizado por un chofer y utiliza un auto.
+// Se usa RESTRICT para evitar borrar choferes/autos que ya tienen viajes.
+
+Chofer.hasMany(Viaje, {
+  foreignKey: 'idChofer',
+  as: 'viajes',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE',
+});
+
+Viaje.belongsTo(Chofer, {
+  foreignKey: 'idChofer',
+  as: 'chofer',
+});
+
+Auto.hasMany(Viaje, {
+  foreignKey: 'idAuto',
+  as: 'viajes',
+  onDelete: 'RESTRICT',
+  onUpdate: 'CASCADE',
+});
+
+Viaje.belongsTo(Auto, {
+  foreignKey: 'idAuto',
+  as: 'auto',
+});
+
+// ---------------------------------------------------------------------------
+// Reservas
+// ---------------------------------------------------------------------------
+// Un pasajero puede tener muchas reservas.
+// Un viaje puede tener muchas reservas.
+// Cada reserva pertenece a un pasajero y a un viaje.
+
+Pasajero.hasMany(Reserva, {
+  foreignKey: 'idPasajero',
+  as: 'reservas',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+
+Reserva.belongsTo(Pasajero, {
+  foreignKey: 'idPasajero',
+  as: 'pasajero',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+
+Viaje.hasMany(Reserva, {
+  foreignKey: 'idViaje',
+  as: 'reservas',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+
+Reserva.belongsTo(Viaje, {
+  foreignKey: 'idViaje',
+  as: 'viaje',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
 
 module.exports = {
-    sequelize,
-    Usuario,
-    Pasajero,
-    Chofer,
-    Auto,         
-    TurnoChofer,
-    Reserva
+  sequelize,
+  Usuario,
+  Pasajero,
+  Chofer,
+  Admin,
+  Auto,
+  TurnoChofer,
+  Viaje,
+  Reserva,
 };

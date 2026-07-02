@@ -1,5 +1,7 @@
 const { sequelize, Usuario, Pasajero } = require('../models/relaciones');
 
+const pasajeroCtrl = {};
+
 // Evita devolver el passwordHash en las respuestas del servidor.
 const quitarPassword = (usuario) => {
   const usuarioSinPassword = usuario.toJSON();
@@ -8,7 +10,7 @@ const quitarPassword = (usuario) => {
   return usuarioSinPassword;
 };
 
-const registrarPasajero = async (req, res) => {
+pasajeroCtrl.registrarPasajero = async (req, res) => {
   const {
     nombre,
     apellido,
@@ -65,7 +67,7 @@ const registrarPasajero = async (req, res) => {
   }
 };
 
-const obtenerPasajeros = async (req, res) => {
+pasajeroCtrl.obtenerPasajeros = async (req, res) => {
   try {
     // Trae los pasajeros junto con los datos del usuario relacionado.
     const pasajeros = await Pasajero.findAll({
@@ -87,7 +89,4 @@ const obtenerPasajeros = async (req, res) => {
   }
 };
 
-module.exports = {
-  registrarPasajero,
-  obtenerPasajeros,
-};
+module.exports = pasajeroCtrl;

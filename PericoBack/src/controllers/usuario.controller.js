@@ -1,4 +1,4 @@
-const { Usuario, Chofer, Pasajero } = require('../models/relaciones');
+const { Usuario, Chofer, Pasajero, Admin } = require('../models/relaciones');
 
 const usuarioCtrl = {};
 
@@ -50,6 +50,11 @@ usuarioCtrl.login = async (req, res) => {
           as: 'perfilPasajero',
           required: false,
         },
+        {
+          model: Admin,
+          as: 'perfilAdmin',
+          required: false,
+        },
       ],
     });
 
@@ -60,10 +65,31 @@ usuarioCtrl.login = async (req, res) => {
       });
     }
 
+    if (!usuario.activo) {
+      return res.json({
+        status: 0,
+        msg: 'La cuenta de usuario no esta activa',
+      });
+    }
+
     // ==========================
     // LOGIN ADMIN
     // ==========================
     if (usuario.rol === 'ADMIN') {
+      if (!usuario.perfilAdmin) {
+        return res.json({
+          status: 0,
+          msg: 'No se encontro el perfil de admin asociado',
+        });
+      }
+
+      if (usuario.perfilAdmin.estadoAdmin !== 'ACTIVO') {
+        return res.json({
+          status: 0,
+          msg: 'La cuenta de admin no esta activa',
+        });
+      }
+
       return res.json({
         status: 1,
         msg: 'success',
@@ -82,6 +108,7 @@ usuarioCtrl.login = async (req, res) => {
       const ESTADOS_CHOFER_HABILITADOS = [
         'DISPONIBLE',
         'EN_VIAJE',
+        'DESCANSO',
       ];
 
       if (!usuario.perfilChofer) {

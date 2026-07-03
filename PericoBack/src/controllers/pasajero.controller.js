@@ -1,4 +1,4 @@
-const { sequelize, Usuario, Pasajero } = require('../models/relaciones');
+const { sequelize, Usuario, Pasajero, Reserva, Viaje } = require('../models/relaciones');
 
 const pasajeroCtrl = {};
 
@@ -90,5 +90,74 @@ pasajeroCtrl.obtenerPasajeros = async (req, res) => {
   }
 };
 
+pasajeroCtrl.obtenerPasajero = async (req, res) => {
+  try {
+    // Trae el perfil completo del pasajero, sus datos de usuario y sus reservas.
+    const pasajero = await Pasajero.findByPk(req.params.idPasajero, {
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: { exclude: ['passwordHash'] },
+        },
+        {
+          model: Reserva,
+          as: 'reservas',
+          include: [
+            {
+              model: Viaje,
+              as: 'viaje',
+              include: ['chofer', 'auto'],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!pasajero) {
+      return res.status(404).json({
+        mensaje: 'Pasajero no encontrado',
+      });
+    }
+
+    return res.status(200).json(pasajero);
+  } catch (error) {
+    return res.status(500).json({
+      mensaje: 'Error al obtener el pasajero',
+      error: error.message,
+    });
+  }
+};
+
+pasajeroCtrl.obtenerHistorialPasajero = async (req, res) => {
+  try {
+    // El historial se arma desde las reservas del pasajero e incluye el viaje asociado.
+    const pasajero = await Pasajero.findByPk(req.params.idPasajero);
+    if (!pasajero) {
+      return res.status(404).json({
+        mensaje: 'Pasajero no encontrado',
+      });
+    }
+
+    const historial = await Reserva.findAll({
+      where: { idPasajero: req.params.idPasajero },
+      include: [
+        {
+          model: Viaje,
+          as: 'viaje',
+          include: ['chofer', 'auto'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    return res.status(200).json(historial);
+  } catch (error) {
+    return res.status(500).json({
+      mensaje: 'Error al obtener el historial del pasajero',
+      error: error.message,
+    });
+  }
+};
 
 module.exports = pasajeroCtrl;

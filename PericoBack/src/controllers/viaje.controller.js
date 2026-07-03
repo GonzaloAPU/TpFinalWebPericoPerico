@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const Viaje = require('./../../src/models/viaje.model'); 
 const Auto = require('./../../src/models/auto.model'); 
 const Chofer = require('./../../src/models/chofer.model'); 
@@ -32,6 +33,33 @@ viajeCtrl.getViaje = async (req, res) => {
     }
 };
 
+// Buscar viajes abiertos por origen y destino, mostrando solo los que tienen asientos.
+viajeCtrl.getViajesDisponibles = async (req, res) => {
+    try {
+        const { origen, destino } = req.query;
+
+        if (!origen || !destino) {
+            return res.status(400).json({ status: '0', msg: 'Debe enviar origen y destino.' });
+        }
+
+        const viajes = await Viaje.findAll({
+            where: {
+                origen,
+                destino,
+                estadoViaje: 'ABIERTO',
+                asientosDisponibles: {
+                    [Op.gt]: 0
+                }
+            },
+            include: ['chofer', 'auto', 'reservas'],
+            order: [['fechaSalida', 'ASC'], ['horaSalida', 'ASC']]
+        });
+
+        return res.status(200).json(viajes);
+    } catch (error) {
+        return res.status(500).json({ status: '0', msg: 'Error al buscar viajes disponibles.' });
+    }
+};
 
 // Registrar un nuevo viaje
 viajeCtrl.createViaje = async (req, res) => {

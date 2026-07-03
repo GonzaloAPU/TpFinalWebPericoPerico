@@ -5,5 +5,7 @@ const router = express.Router();
 
 router.get('/', reservaCtrl.obtenerReservas);
 router.post('/', reservaCtrl.registrarReserva);
+router.patch('/:idReserva/estado', reservaCtrl.cambiarEstadoReserva);
+router.patch('/:idReserva/cancelar', reservaCtrl.cancelarReserva);
 
 module.exports = router;

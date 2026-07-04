@@ -2,6 +2,9 @@ const { Usuario, Chofer, Pasajero, Admin } = require('../models/relaciones');
 
 const jwt = require('jsonwebtoken');
 
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 const usuarioCtrl = {};
 
 // Obtener todos los usuarios
@@ -23,6 +26,69 @@ usuarioCtrl.obtenerUsuarios = async (req, res) => {
 };
 
 
+//logueo con google
+usuarioCtrl.loginGoogle = async (req, res) => {
+  const { token } = req.body;
+
+  try {
+
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    const email = payload.email;
+    const nombre = payload.given_name || '';
+    const apellido = payload.family_name || '';
+
+    let usuario = await Usuario.findOne({
+      where: { email }
+    });
+
+    // Si no existe lo crea automáticamente
+    if (!usuario) {
+
+      usuario = await Usuario.create({
+        nombre,
+        apellido,
+        email,
+        passwordHash: '',
+        activo: true,
+        rol: 'PASAJERO'
+      });
+
+    }
+
+    const jwtToken = jwt.sign(
+      {
+        idUsuario: usuario.idUsuario,
+        rol: usuario.rol
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '1h'
+      }
+    );
+
+    return res.json({
+      status: 1,
+      msg: 'Login Google exitoso',
+      token: jwtToken,
+      usuario
+    });
+
+  } catch (error) {
+
+    return res.status(401).json({
+      status: 0,
+      msg: 'Token Google inválido',
+      error: error.message
+    });
+
+  }
+};
 
 // Login único para todos los usuarios
 usuarioCtrl.login = async (req, res) => {

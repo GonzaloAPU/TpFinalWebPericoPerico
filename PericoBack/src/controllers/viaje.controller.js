@@ -142,6 +142,50 @@ viajeCtrl.changeEstado = async (req, res) => {
     }
 };
 
+// Actualizar asientos disponibles del viaje
+viajeCtrl.actualizarAsientosDisponibles = async (req, res) => {
+    try {
+        const idViaje = req.params.id;
+        const { asientosDisponibles } = req.body;
+
+        if (asientosDisponibles === undefined || asientosDisponibles === null) {
+            return res.status(400).json({ status: '0', msg: 'Debe enviar asientosDisponibles.' });
+        }
+
+        const nuevosAsientos = Number(asientosDisponibles);
+        if (!Number.isInteger(nuevosAsientos) || nuevosAsientos < 0) {
+            return res.status(400).json({ status: '0', msg: 'Los asientos disponibles deben ser un numero entero mayor o igual a 0.' });
+        }
+
+        const viaje = await Viaje.findByPk(idViaje, {
+            include: ['auto']
+        });
+
+        if (!viaje) {
+            return res.status(404).json({ status: '0', msg: 'Viaje no encontrado.' });
+        }
+
+        if (viaje.auto && nuevosAsientos > viaje.auto.capacidadAsientos) {
+            return res.status(400).json({ status: '0', msg: 'Los asientos disponibles no pueden superar la capacidad del auto.' });
+        }
+
+        viaje.asientosDisponibles = nuevosAsientos;
+        await viaje.save();
+
+        const viajeActualizado = await Viaje.findByPk(idViaje, {
+            include: ['chofer', 'auto', 'reservas']
+        });
+
+        return res.status(200).json({
+            status: '1',
+            msg: 'Asientos disponibles actualizados.',
+            viaje: viajeActualizado
+        });
+    } catch (error) {
+        return res.status(500).json({ status: '0', msg: 'Error al actualizar los asientos disponibles.' });
+    }
+};
+
 
 // Eliminar un viaje
 viajeCtrl.deleteViaje = async (req, res) => {

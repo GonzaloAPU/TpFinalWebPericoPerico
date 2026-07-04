@@ -1,5 +1,7 @@
 const { Usuario, Chofer, Pasajero, Admin } = require('../models/relaciones');
 
+const jwt = require('jsonwebtoken');
+
 const usuarioCtrl = {};
 
 // Obtener todos los usuarios
@@ -90,6 +92,9 @@ usuarioCtrl.login = async (req, res) => {
         });
       }
 
+      //token de 1 hora de expiracion para admin
+      const token = jwt.sign({idUsuario: usuario.idUsuario,rol: usuario.rol},process.env.JWT_SECRET,{expiresIn: '1h'});
+
       return res.json({
         status: 1,
         msg: 'success',
@@ -98,6 +103,7 @@ usuarioCtrl.login = async (req, res) => {
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         email: usuario.email,
+        token: token
       });
     }
 
@@ -129,6 +135,18 @@ usuarioCtrl.login = async (req, res) => {
         });
       }
 
+      //token de 1 hora de expiracion para chofer
+      const token = jwt.sign(
+        {
+          idUsuario: usuario.idUsuario,
+          rol: usuario.rol
+        },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: '1h'
+        }
+      );
+
       return res.json({
         status: 1,
         msg: 'success',
@@ -139,6 +157,7 @@ usuarioCtrl.login = async (req, res) => {
         apellido: usuario.apellido,
         email: usuario.email,
         estadoChofer: usuario.perfilChofer.estadoChofer,
+        token: token
       });
     }
 
@@ -160,6 +179,18 @@ usuarioCtrl.login = async (req, res) => {
         });
       }
 
+      //token de 1 hora de expiracion para pasajero
+      const token = jwt.sign(
+        {
+          idUsuario: usuario.idUsuario,
+          rol: usuario.rol
+        },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: '1h'
+        }
+      );
+
       return res.json({
         status: 1,
         msg: 'success',
@@ -170,6 +201,7 @@ usuarioCtrl.login = async (req, res) => {
         apellido: usuario.apellido,
         email: usuario.email,
         estadoPasajero: usuario.perfilPasajero.estadoPasajero,
+        token: token
       });
     }
 

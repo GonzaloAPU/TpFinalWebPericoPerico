@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const sequelize = require('./src/models/relaciones').sequelize;
+require('dotenv').config(); 
 
 var app = express();
 

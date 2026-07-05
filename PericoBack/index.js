@@ -19,7 +19,7 @@ app.use('/api/viajes', require('./src/routes/viaje.routes'));
 app.use('/api/reservas', require('./src/routes/reserva.routes'));
 app.use('/api/usuarios', require('./src/routes/usuario.routes'));
 
-sequelize.sync({ force: false })
+sequelize.sync({ alter: true })
   .then(() => {
     console.log('Tablas de PostgreSQL sincronizadas correctamente.');
     app.listen(app.get('port'), () => {

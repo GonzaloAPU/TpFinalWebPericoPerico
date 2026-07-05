@@ -10,6 +10,32 @@ const quitarPassword = (usuario) => {
   return usuarioSinPassword;
 };
 
+const validarUbicacion = (latitud, longitud, precision) => {
+  const latitudNumero = Number(latitud);
+  const longitudNumero = Number(longitud);
+  const precisionNumero = precision !== undefined && precision !== null ? Number(precision) : null;
+
+  if (!Number.isFinite(latitudNumero) || latitudNumero < -90 || latitudNumero > 90) {
+    return { error: 'Latitud no valida.' };
+  }
+
+  if (!Number.isFinite(longitudNumero) || longitudNumero < -180 || longitudNumero > 180) {
+    return { error: 'Longitud no valida.' };
+  }
+
+  if (precisionNumero !== null && (!Number.isFinite(precisionNumero) || precisionNumero < 0)) {
+    return { error: 'Precision no valida.' };
+  }
+
+  return {
+    ubicacion: {
+      latitud: latitudNumero,
+      longitud: longitudNumero,
+      precision: precisionNumero,
+    },
+  };
+};
+
 choferCtrl.registrarChofer = async (req, res) => {
   const {
     nombre,
@@ -163,6 +189,55 @@ choferCtrl.cambiarEstadoChofer = async (req, res) => {
     return res.status(500).json({
       status: '0',
       msg: 'Error al actualizar el estado del chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Actualiza la ubicacion actual del chofer.
+choferCtrl.actualizarUbicacionChofer = async (req, res) => {
+  try {
+    const { latitud, longitud, precision } = req.body;
+    const resultado = validarUbicacion(latitud, longitud, precision);
+
+    if (resultado.error) {
+      return res.status(400).json({
+        status: '0',
+        msg: resultado.error,
+      });
+    }
+
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: { exclude: ['passwordHash'] },
+        },
+      ],
+    });
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    chofer.latitud = resultado.ubicacion.latitud;
+    chofer.longitud = resultado.ubicacion.longitud;
+    chofer.precision = resultado.ubicacion.precision;
+    await chofer.save();
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Ubicacion del chofer actualizada.',
+      chofer,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al actualizar la ubicacion del chofer.',
       error: error.message,
     });
   }

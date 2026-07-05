@@ -12,6 +12,9 @@ router.get('/:idChofer', choferCtrl.obtenerChoferPorId);
 // Frontend: cambia el estado del chofer (DISPONIBLE, DESCANSO, EN_VIAJE, etc.).
 router.patch('/:idChofer/estado', choferCtrl.cambiarEstadoChofer);
 
+// Frontend: actualiza la ubicacion actual del chofer.
+router.patch('/:idChofer/ubicacion', choferCtrl.actualizarUbicacionChofer);
+
 // Frontend: trae todos los autos relacionados a ese chofer.
 router.get('/:idChofer/autos', choferCtrl.obtenerAutosDelChofer);
 

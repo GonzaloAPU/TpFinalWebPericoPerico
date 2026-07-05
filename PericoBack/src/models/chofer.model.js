@@ -48,6 +48,18 @@ const Chofer = sequelize.define(
         type: DataTypes.DECIMAL(3, 2),
         defaultValue: 0,
       },
+      latitud: {
+        type: DataTypes.DECIMAL(10, 8),
+        allowNull: true,
+      },
+      longitud: {
+        type: DataTypes.DECIMAL(11, 8),
+        allowNull: true,
+      },
+      precision: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+      },
     },
     {
       tableName: 'choferes',

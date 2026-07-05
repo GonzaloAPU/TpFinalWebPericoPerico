@@ -1,4 +1,14 @@
-const { sequelize, Usuario, Admin } = require('../models/relaciones');
+const { fn, col } = require('sequelize');
+const {
+  sequelize,
+  Usuario,
+  Pasajero,
+  Chofer,
+  Auto,
+  Viaje,
+  Reserva,
+  Admin,
+} = require('../models/relaciones');
 
 const adminCtrl = {};
 
@@ -81,6 +91,157 @@ adminCtrl.obtenerAdmins = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       mensaje: 'Error al obtener los admins',
+      error: error.message,
+    });
+  }
+};
+
+// GET /api/admins/dashboard
+adminCtrl.getDashboard = async (req, res) => {
+  try {
+    const totalUsuarios = await Usuario.count();
+    const totalPasajeros = await Pasajero.count();
+    const totalChoferes = await Chofer.count();
+    const totalAutos = await Auto.count();
+    const totalViajes = await Viaje.count();
+    const totalReservas = await Reserva.count();
+
+    const viajesPorEstado = await Viaje.findAll({
+      attributes: [
+        'estadoViaje',
+        [fn('COUNT', col('estadoViaje')), 'cantidad'],
+      ],
+      group: ['estadoViaje'],
+      raw: true,
+    });
+
+    const reservasPorEstado = await Reserva.findAll({
+      attributes: [
+        'estadoReserva',
+        [fn('COUNT', col('estadoReserva')), 'cantidad'],
+      ],
+      group: ['estadoReserva'],
+      raw: true,
+    });
+
+    const fechaReserva = fn('DATE', col('Reserva.createdAt'));
+    const reservasPorFecha = await Reserva.findAll({
+      attributes: [
+        [fechaReserva, 'fecha'],
+        [fn('COUNT', col('idReserva')), 'cantidad'],
+      ],
+      group: [fechaReserva],
+      order: [[fechaReserva, 'ASC']],
+      raw: true,
+    });
+
+    const choferesPorEstado = await Chofer.findAll({
+      attributes: [
+        'estadoChofer',
+        [fn('COUNT', col('estadoChofer')), 'cantidad'],
+      ],
+      group: ['estadoChofer'],
+      raw: true,
+    });
+
+    const pasajerosPorEstado = await Pasajero.findAll({
+      attributes: [
+        'estadoPasajero',
+        [fn('COUNT', col('estadoPasajero')), 'cantidad'],
+      ],
+      group: ['estadoPasajero'],
+      raw: true,
+    });
+
+    const autosPorEstado = await Auto.findAll({
+      attributes: [
+        'estado',
+        [fn('COUNT', col('estado')), 'cantidad'],
+      ],
+      group: ['estado'],
+      raw: true,
+    });
+
+    const ultimasReservas = await Reserva.findAll({
+      limit: 10,
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          association: 'pasajero',
+          include: [
+            {
+              association: 'usuario',
+              attributes: {
+                exclude: ['passwordHash'],
+              },
+            },
+          ],
+        },
+        {
+          association: 'viaje',
+          include: [
+            {
+              association: 'chofer',
+              include: [
+                {
+                  association: 'usuario',
+                  attributes: {
+                    exclude: ['passwordHash'],
+                  },
+                },
+              ],
+            },
+            {
+              association: 'auto',
+            },
+          ],
+        },
+      ],
+    });
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Dashboard obtenido correctamente.',
+      totales: {
+        usuarios: totalUsuarios,
+        pasajeros: totalPasajeros,
+        choferes: totalChoferes,
+        autos: totalAutos,
+        viajes: totalViajes,
+        reservas: totalReservas,
+      },
+      viajesPorEstado: viajesPorEstado.map((item) => ({
+        estado: item.estadoViaje,
+        cantidad: Number(item.cantidad),
+      })),
+      reservasPorEstado: reservasPorEstado.map((item) => ({
+        estado: item.estadoReserva,
+        cantidad: Number(item.cantidad),
+      })),
+      reservasPorFecha: reservasPorFecha.map((item) => ({
+        fecha: item.fecha,
+        cantidad: Number(item.cantidad),
+      })),
+      choferesPorEstado: choferesPorEstado.map((item) => ({
+        estado: item.estadoChofer,
+        cantidad: Number(item.cantidad),
+      })),
+      pasajerosPorEstado: pasajerosPorEstado.map((item) => ({
+        estado: item.estadoPasajero,
+        cantidad: Number(item.cantidad),
+      })),
+      autosPorEstado: autosPorEstado.map((item) => ({
+        estado: item.estado,
+        cantidad: Number(item.cantidad),
+      })),
+      ultimasReservas,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al obtener los datos del dashboard.',
       error: error.message,
     });
   }

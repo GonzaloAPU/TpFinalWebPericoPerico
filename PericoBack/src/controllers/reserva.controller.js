@@ -49,15 +49,14 @@ const cancelarReservaConTransaccion = async (idReserva, transaction) => {
   return { reserva, viaje };
 };
 
-
 reservaCtrl.registrarReserva = async (req, res) => {
   try {
     const { tipoCanal } = req.query;
 
-    if (!tipoCanal || (tipoCanal !== 'QR' && tipoCanal !== 'LINK')) {
+    if (!tipoCanal || !['QR', 'LINK', 'EFECTIVO'].includes(tipoCanal)) {
       return res.status(400).json({
         mensaje: 'Error de validación',
-        error: "Es obligatorio enviar el parámetro 'tipoCanal' en la URL con el valor 'QR' o 'LINK'."
+        error: "Es obligatorio enviar el parámetro 'tipoCanal' en la URL con el valor 'QR', 'LINK' o 'EFECTIVO'."
       });
     }
 
@@ -66,7 +65,18 @@ reservaCtrl.registrarReserva = async (req, res) => {
     const total = parseFloat(reserva.importeTotal);
     const precioUnitario = total / cantidad;
 
-    // OPCIÓN 1: Link de pago
+    // OPCION 1: Pago en efectivo
+    if (tipoCanal === 'EFECTIVO') {
+      return res.status(201).json({
+        mensaje: 'Reserva creada con éxito para pago en efectivo',
+        reserva: reserva,
+        tipoPago: 'EFECTIVO',
+        url_pago: null,
+        qr_data: null
+      });
+    }
+
+    // OPCIÓN 2: Link de pago
     if (tipoCanal === 'LINK') {
       const baseUrl = process.env.NGROK_URL || 'https://grunge-altitude-gratified.ngrok-free.dev';
       const preferenceInstance = new Preference(clientLink);
@@ -102,7 +112,7 @@ reservaCtrl.registrarReserva = async (req, res) => {
       });
     }
 
-    // OPCION 2: QR
+    // OPCION 3: QR
     const qrData = {
       external_reference: String(reserva.idReserva),
       title: `Taxi Viaje #${reserva.idViaje} - Reserva #${reserva.idReserva}`,
@@ -182,7 +192,6 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
         if (idReservaLocal) {
           const reservaLocal = await Reserva.findByPk(idReservaLocal);
           if (reservaLocal) {
-            // ─── CONTROL DE CONTROL: Si ya estaba pagada, la ignoramos de forma segura ───
             if (reservaLocal.estadoPago === 'PAGADO') {
               return; 
             }
@@ -190,6 +199,7 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
             reservaLocal.estadoPago = 'PAGADO';
             reservaLocal.estadoReserva = 'CONFIRMADA';
             await reservaLocal.save();
+            await reservaLocal.reload();
             console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Orden.`);
           } else {
             console.log(`[BACKEND] No se encontró la reserva #${idReservaLocal} en la BD.`);
@@ -219,6 +229,7 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
           reservaLocal.estadoPago = 'PAGADO';
           reservaLocal.estadoReserva = 'CONFIRMADA';
           await reservaLocal.save();
+          await reservaLocal.reload();
           console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Payment.`);
         }
       }
@@ -229,6 +240,125 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
     console.error('Error crítico en el Webhook:', error.message);
   }
 };
+
+
+reservaCtrl.generarQrReserva= async (req, res) => {
+  try {
+    const { idReserva } = req.params; 
+
+    // Busqueda de la reserva solicitada 
+    const reserva = await Reserva.findByPk(idReserva);
+    if (!reserva) {
+      return res.status(404).json({
+        mensaje: 'Error de búsqueda',
+        error: `No se encontró ninguna reserva con el ID #${idReserva}`
+      });
+    }
+
+    // Validamos que no intenten cobrar algo que ya se pagó
+    if (reserva.estadoPago === 'PAGADO') {
+      return res.status(400).json({
+        mensaje: 'Validación de pago fallida',
+        error: 'Esta reserva ya ha sido abonada previamente.'
+      });
+    }
+
+    const cantidad = parseInt(reserva.cantidadAsientos) || 1;
+    const total = parseFloat(reserva.importeTotal);
+    const precioUnitario = total / cantidad;
+
+    const qrData = {
+      external_reference: String(reserva.idReserva),
+      title: `Taxi Viaje #${reserva.idViaje} - Reserva #${reserva.idReserva}`,
+      description: `Pago en viaje de reserva existente - Viaje ID: ${reserva.idViaje}`, 
+      total_amount: total, 
+      items: [
+        {
+          title: `Reserva de ${cantidad} asiento(s) - Taxi`, 
+          description: `Reserva de ${cantidad} asiento(s) para el viaje #${reserva.idViaje}`, 
+          unit_price: parseFloat(precioUnitario.toFixed(2)), 
+          quantity: cantidad, 
+          unit_measure: 'unit',
+          total_amount: total
+        }
+      ]
+    };
+
+    const user_id = '258168003'; 
+    const external_pos_id = 'CAJA001';  
+
+    const response = await fetch(`https://api.mercadopago.com/instore/orders/qr/seller/collectors/${user_id}/pos/${external_pos_id}/qrs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN_QR}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(qrData)
+    });
+
+    const responseMp = await response.json();
+    if (!response.ok) {
+      return res.status(400).json({
+        mensaje: 'Error en la petición a Mercado Pago',
+        error: responseMp.message || 'Error desconocido'
+      });
+    }
+
+    return res.status(200).json({
+      mensaje: 'Código QR generado con éxito para el chofer',
+      idReserva: reserva.idReserva,
+      tipoPago: 'QR',
+      qr_data: responseMp.qr_data 
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      mensaje: 'Error al generar QR para reserva existente', 
+      error: error.message 
+    });
+  }
+};
+
+
+
+reservaCtrl.registrarPagoEfectivo = async (req, res) => {
+  try {
+    const { idReserva } = req.params; 
+
+    const reserva = await Reserva.findByPk(idReserva);
+
+    if (!reserva) {
+      return res.status(404).json({
+        mensaje: 'Error de búsqueda',
+        error: `No se encontró ninguna reserva con el ID #${idReserva}`
+      });
+    }
+
+    if (reserva.estadoPago === 'PAGADO') {  // Validacion  que no se intente marcar como pagado algo que YA está pagado
+      return res.status(400).json({
+        mensaje: 'Validación de pago fallida',
+        error: 'Esta reserva ya figura como PAGADA en el sistema.'
+      });
+    }
+
+    reserva.estadoPago = 'PAGADO';
+    
+    await reserva.save();
+
+    return res.status(200).json({
+      mensaje: 'El pago en efectivo fue registrado con éxito por el chofer',
+      idReserva: reserva.idReserva,
+      estadoPago: reserva.estadoPago,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      mensaje: 'Error al registrar el pago en efectivo',
+      error: error.message
+    });
+  }
+};
+
 
 
 reservaCtrl.obtenerReservas = async (req, res) => {

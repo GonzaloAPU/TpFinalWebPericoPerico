@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const sequelize = require('./src/models/relaciones').sequelize;
+require('dotenv').config(); 
 
 var app = express();
 
@@ -16,8 +17,9 @@ app.use('/api/autos', require('./src/routes/auto.routes'));
 app.use('/api/turnos', require('./src/routes/turnoChofer.routes'));
 app.use('/api/viajes', require('./src/routes/viaje.routes'));
 app.use('/api/reservas', require('./src/routes/reserva.routes'));
+app.use('/api/usuarios', require('./src/routes/usuario.routes'));
 
-sequelize.sync({ force: false })
+sequelize.sync({ alter: true })
   .then(() => {
     console.log('Tablas de PostgreSQL sincronizadas correctamente.');
     app.listen(app.get('port'), () => {

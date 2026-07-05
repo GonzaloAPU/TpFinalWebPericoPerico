@@ -1,4 +1,4 @@
-const { sequelize, Usuario, Chofer } = require('../models/relaciones');
+const { sequelize, Usuario, Chofer, Auto, Viaje } = require('../models/relaciones');
 
 const choferCtrl = {};
 
@@ -8,6 +8,32 @@ const quitarPassword = (usuario) => {
   delete usuarioSinPassword.passwordHash;
 
   return usuarioSinPassword;
+};
+
+const validarUbicacion = (latitud, longitud, precision) => {
+  const latitudNumero = Number(latitud);
+  const longitudNumero = Number(longitud);
+  const precisionNumero = precision !== undefined && precision !== null ? Number(precision) : null;
+
+  if (!Number.isFinite(latitudNumero) || latitudNumero < -90 || latitudNumero > 90) {
+    return { error: 'Latitud no valida.' };
+  }
+
+  if (!Number.isFinite(longitudNumero) || longitudNumero < -180 || longitudNumero > 180) {
+    return { error: 'Longitud no valida.' };
+  }
+
+  if (precisionNumero !== null && (!Number.isFinite(precisionNumero) || precisionNumero < 0)) {
+    return { error: 'Precision no valida.' };
+  }
+
+  return {
+    ubicacion: {
+      latitud: latitudNumero,
+      longitud: longitudNumero,
+      precision: precisionNumero,
+    },
+  };
 };
 
 choferCtrl.registrarChofer = async (req, res) => {
@@ -87,6 +113,191 @@ choferCtrl.obtenerChoferes = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       mensaje: 'Error al obtener los choferes',
+      error: error.message,
+    });
+  }
+};
+
+// Trae los datos completos de un chofer puntual junto con su usuario.
+choferCtrl.obtenerChoferPorId = async (req, res) => {
+  try {
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: { exclude: ['passwordHash'] },
+        },
+      ],
+    });
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    return res.status(200).json(chofer);
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al obtener el chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Cambia solo el estado operativo del chofer.
+choferCtrl.cambiarEstadoChofer = async (req, res) => {
+  try {
+    const estadoChofer = req.body.estadoChofer || req.body.estado;
+    const estadosValidos = [
+      'DISPONIBLE',
+      'EN_VIAJE',
+      'DESCANSO',
+      'SUSPENDIDO',
+      'INACTIVO',
+      'ELIMINADO',
+    ];
+
+    if (!estadosValidos.includes(estadoChofer)) {
+      return res.status(400).json({
+        status: '0',
+        msg: 'Estado de chofer no valido.',
+      });
+    }
+
+    const chofer = await Chofer.findByPk(req.params.idChofer);
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    chofer.estadoChofer = estadoChofer;
+    await chofer.save();
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Estado del chofer actualizado.',
+      chofer,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al actualizar el estado del chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Actualiza la ubicacion actual del chofer.
+choferCtrl.actualizarUbicacionChofer = async (req, res) => {
+  try {
+    const { latitud, longitud, precision } = req.body;
+    const resultado = validarUbicacion(latitud, longitud, precision);
+
+    if (resultado.error) {
+      return res.status(400).json({
+        status: '0',
+        msg: resultado.error,
+      });
+    }
+
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: { exclude: ['passwordHash'] },
+        },
+      ],
+    });
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    chofer.latitud = resultado.ubicacion.latitud;
+    chofer.longitud = resultado.ubicacion.longitud;
+    chofer.precision = resultado.ubicacion.precision;
+    await chofer.save();
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Ubicacion del chofer actualizada.',
+      chofer,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al actualizar la ubicacion del chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Trae todos los autos relacionados al chofer por sus turnos.
+choferCtrl.obtenerAutosDelChofer = async (req, res) => {
+  try {
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [
+        {
+          model: Auto,
+          as: 'autos',
+        },
+      ],
+    });
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    return res.status(200).json(chofer.autos);
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al obtener los autos del chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Trae los viajes que se muestran en el boton "Ver Mis Viajes".
+choferCtrl.obtenerViajesDelChofer = async (req, res) => {
+  try {
+    const chofer = await Chofer.findByPk(req.params.idChofer);
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    const viajes = await Viaje.findAll({
+      where: { idChofer: req.params.idChofer },
+      include: ['auto', 'reservas'],
+      order: [
+        ['fechaSalida', 'DESC'],
+        ['horaSalida', 'DESC'],
+      ],
+    });
+
+    return res.status(200).json(viajes);
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al obtener los viajes del chofer.',
       error: error.message,
     });
   }

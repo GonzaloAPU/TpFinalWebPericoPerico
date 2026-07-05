@@ -6,6 +6,8 @@ const router = express.Router();
 
 // definimos las rutas para la gestion de Viajes
 router.get('/', viajeCtrl.getViajes);
+router.get('/disponibles', viajeCtrl.getViajesDisponibles);
+router.post('/:id/actualizar-asientos-disponibles', viajeCtrl.actualizarAsientosDisponibles);
 router.get('/:id', viajeCtrl.getViaje);
 router.post('/', viajeCtrl.createViaje);
 router.put('/:id', viajeCtrl.editViaje);

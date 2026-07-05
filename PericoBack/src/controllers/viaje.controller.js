@@ -1,6 +1,9 @@
+const { Op } = require('sequelize');
 const Viaje = require('./../../src/models/viaje.model'); 
 const Auto = require('./../../src/models/auto.model'); 
 const Chofer = require('./../../src/models/chofer.model'); 
+const Reserva = require('./../../src/models/reserva.model');
+const Usuario = require('./../../src/models/usuario.model');
 
 const viajeCtrl = {};
 
@@ -32,6 +35,90 @@ viajeCtrl.getViaje = async (req, res) => {
     }
 };
 
+// Buscar viajes abiertos por origen y destino, mostrando solo los que tienen asientos.
+/*viajeCtrl.getViajesDisponibles = async (req, res) => {
+    try {
+        const { origen, destino } = req.query;
+
+        if (!origen || !destino) {
+            return res.status(400).json({ status: '0', msg: 'Debe enviar origen y destino.' });
+        }
+
+        const viajes = await Viaje.findAll({
+            where: {
+                origen,
+                destino,
+                estadoViaje: 'ABIERTO',
+                asientosDisponibles: {
+                    [Op.gt]: 0
+                }
+            },
+            include: ['chofer', 'auto', 'reservas', 'usuario'],
+            order: [['fechaSalida', 'ASC'], ['horaSalida', 'ASC']]
+        });
+
+        return res.status(200).json(viajes);
+    } catch (error) {
+        return res.status(500).json({ status: '0', msg: 'Error al buscar viajes disponibles.' });
+    }
+};*/
+
+viajeCtrl.getViajesDisponibles = async (req, res) => {
+    try {
+        const { origen, destino } = req.query;
+
+        if (!origen || !destino) {
+            return res.status(400).json({
+                status: '0',
+                msg: 'Debe enviar origen y destino.'
+            });
+        }
+
+        const viajes = await Viaje.findAll({
+            where: {
+                origen,
+                destino,
+                estadoViaje: 'ABIERTO',
+                asientosDisponibles: {
+                    [Op.gt]: 0
+                }
+            },
+            include: [
+                {
+                    association: 'chofer',
+                    include: [
+                        {
+                            association: 'usuario',
+                            attributes: {
+                                exclude: ['passwordHash']
+                            }
+                        }
+                    ]
+                },
+                {
+                    association: 'auto'
+                },
+                {
+                    association: 'reservas'
+                }
+            ],
+            order: [
+                ['fechaSalida', 'ASC'],
+                ['horaSalida', 'ASC']
+            ]
+        });
+
+        return res.status(200).json(viajes);
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            status: '0',
+            msg: 'Error al buscar viajes disponibles.',
+            error: error.message
+        });
+    }
+};
 
 // Registrar un nuevo viaje
 viajeCtrl.createViaje = async (req, res) => {
@@ -111,6 +198,50 @@ viajeCtrl.changeEstado = async (req, res) => {
         return res.status(200).json({ status: '1', msg: 'Estado del viaje actualizado.', viaje });
     } catch (error) {
         return res.status(500).json({ status: '0', msg: 'Error al actualizar el estado.' });
+    }
+};
+
+// Actualizar asientos disponibles del viaje
+viajeCtrl.actualizarAsientosDisponibles = async (req, res) => {
+    try {
+        const idViaje = req.params.id;
+        const { asientosDisponibles } = req.body;
+
+        if (asientosDisponibles === undefined || asientosDisponibles === null) {
+            return res.status(400).json({ status: '0', msg: 'Debe enviar asientosDisponibles.' });
+        }
+
+        const nuevosAsientos = Number(asientosDisponibles);
+        if (!Number.isInteger(nuevosAsientos) || nuevosAsientos < 0) {
+            return res.status(400).json({ status: '0', msg: 'Los asientos disponibles deben ser un numero entero mayor o igual a 0.' });
+        }
+
+        const viaje = await Viaje.findByPk(idViaje, {
+            include: ['auto']
+        });
+
+        if (!viaje) {
+            return res.status(404).json({ status: '0', msg: 'Viaje no encontrado.' });
+        }
+
+        if (viaje.auto && nuevosAsientos > viaje.auto.capacidadAsientos) {
+            return res.status(400).json({ status: '0', msg: 'Los asientos disponibles no pueden superar la capacidad del auto.' });
+        }
+
+        viaje.asientosDisponibles = nuevosAsientos;
+        await viaje.save();
+
+        const viajeActualizado = await Viaje.findByPk(idViaje, {
+            include: ['chofer', 'auto', 'reservas']
+        });
+
+        return res.status(200).json({
+            status: '1',
+            msg: 'Asientos disponibles actualizados.',
+            viaje: viajeActualizado
+        });
+    } catch (error) {
+        return res.status(500).json({ status: '0', msg: 'Error al actualizar los asientos disponibles.' });
     }
 };
 

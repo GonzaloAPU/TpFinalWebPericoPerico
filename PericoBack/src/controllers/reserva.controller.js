@@ -1,58 +1,107 @@
 const { Reserva } = require('../models/relaciones');
-const { MercadoPagoConfig, QRCode, Payment } = require('mercadopago'); //Importacion de la librería de Mercado Pago
+const { MercadoPagoConfig, Payment, MerchantOrder, Preference} = require('mercadopago'); 
 
-// Inicializacion del cliente con Access Token de prueba usando variables de entorno (.env)
-const client = new MercadoPagoConfig({ 
-  accessToken: process.env.MP_ACCESS_TOKEN 
-});
+// Inicialización del cliente con Access Token usando variables de entorno (.env)
+const clientQR = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN_QR });
+const clientLink = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN_LINK });
 
-const qrCodeInstance = new QRCode(client);
-const paymentInstance = new Payment(client);
 const reservaCtrl = {};
 
 reservaCtrl.registrarReserva = async (req, res) => {
   try {
-    const reserva = await Reserva.create(req.body);
+    const { tipoCanal } = req.query;
 
-    // Estructura de la petición del QR dinámico para Mercado Pago
+    if (!tipoCanal || (tipoCanal !== 'QR' && tipoCanal !== 'LINK')) {
+      return res.status(400).json({
+        mensaje: 'Error de validación',
+        error: "Es obligatorio enviar el parámetro 'tipoCanal' en la URL con el valor 'QR' o 'LINK'."
+      });
+    }
+
+    const reserva = await Reserva.create(req.body);
+    const cantidad = parseInt(reserva.cantidadAsientos) || 1;
+    const total = parseFloat(reserva.importeTotal);
+    const precioUnitario = total / cantidad;
+
+    // OPCIÓN 1: Link de pago
+    if (tipoCanal === 'LINK') {
+      const baseUrl = process.env.NGROK_URL || 'https://grunge-altitude-gratified.ngrok-free.dev';
+      const preferenceInstance = new Preference(clientLink);
+      const preferenceData = {
+        body: {
+          external_reference: String(reserva.idReserva),
+          items: [
+            {
+              title: `Reserva de ${cantidad} asiento(s) - Viaje #${reserva.idViaje}`,
+              quantity: cantidad,
+              unit_price: parseFloat(precioUnitario.toFixed(2)),
+              currency_id: 'ARS'
+            }
+          ],
+          notification_url: `${baseUrl}/api/reservas/webhook`,
+          back_urls: {
+            success: `${baseUrl}/api/reservas/success`,
+            failure: `${baseUrl}/api/reservas/failure`,
+            pending: `${baseUrl}/api/reservas/pending`
+          },
+          auto_return: "approved"
+        }
+      };
+
+      const preferenceResponse = await preferenceInstance.create(preferenceData);
+
+      return res.status(201).json({
+        mensaje: 'Reserva creada con éxito (Link)',
+        reserva: reserva,
+        tipoPago: 'ENLACE',
+        url_pago: preferenceResponse.init_point,
+        qr_data: null
+      });
+    }
+
+    // OPCION 2: QR
     const qrData = {
-      external_reference: reserva.idReserva.toString(), // ID de tu base de datos, puente con la base de datos
-      title: `Reserva de Viaje #${reserva.idReserva}`,
-      description: `Pago por ${reserva.cantidadAsientos} asientos en taxi compartido.`,
-      total_amount: parseFloat(reserva.importeTotal), // Debe ser tipo Number/Float
+      external_reference: String(reserva.idReserva),
+      title: `Taxi Viaje #${reserva.idViaje} - Reserva #${reserva.idReserva}`,
+      description: `Pago de reserva de taxi - Viaje ID: ${reserva.idViaje}`, 
+      total_amount: total, 
       items: [
         {
-          sku_number: `RES-${reserva.idReserva}`,
-          category: 'marketplace',
-          title: 'Reserva Taxi Compartido',
-          description: `Reserva de viaje id: ${reserva.idViaje}`,
-          unit_price: parseFloat(reserva.importeTotal),
-          quantity: 1,
+          title: `Reserva de ${cantidad} asiento(s) - Taxi`, 
+          description: `Reserva de ${cantidad} asiento(s) para el viaje #${reserva.idViaje}`, 
+          unit_price: parseFloat(precioUnitario.toFixed(2)), 
+          quantity: cantidad, 
           unit_measure: 'unit',
-          total_amount: parseFloat(reserva.importeTotal)
+          total_amount: total
         }
       ]
     };
 
-    // Parámetros de Mercado Pago para generar el QR 
-    const user_id = '3513568686'; 
-    const external_store_id = 'TAXISC001';  //id de la sucursal
-    const external_pos_id = 'CAJA001';  //id de la caja
+    const user_id = '258168003'; // ID de usuario
+    const external_pos_id = 'CAJA001';  // ID de la caja 
 
-    // Solicitud del QR a la API
-    const responseMp = await qrCodeInstance.create({
-      body: qrData,
-      requestOptions: {
-        // En estos campos pasamos la sucursal y la caja ficticia asignada
-        userId: user_id,
-        externalStoreId: external_store_id,
-        externalPosId: external_pos_id
-      }
+    const response = await fetch(`https://api.mercadopago.com/instore/orders/qr/seller/collectors/${user_id}/pos/${external_pos_id}/qrs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN_QR}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(qrData)
     });
 
-    res.status(201).json({
-      mensaje: 'Reserva creada',
+    const responseMp = await response.json();
+    if (!response.ok) {
+      return res.status(400).json({
+        mensaje: 'Error en la petición a Mercado Pago',
+        error: responseMp.message || 'Error desconocido'
+      });
+    }
+
+    return res.status(201).json({
+      mensaje: 'Reserva creada con éxito (QR)',
       reserva: reserva,
+      tipoPago: 'QR',
+      url_pago: null,
       qr_data: responseMp.qr_data 
     });
   } catch (error) {
@@ -63,34 +112,78 @@ reservaCtrl.registrarReserva = async (req, res) => {
   }
 };
 
- 
+
 reservaCtrl.recibirNotificacionPago = async (req, res) => {
   try {
-    // Mercado Pago envía información en la Query cuando impacta un evento
     const { topic, type } = req.query;
-    res.status(200).send('OK');
+    
+    res.status(200).send('OK');  // Respuesta rapida a MercadoPago
 
-    // Validacion si la notificación recibida es efectivamente un "payment" (pago)
-    if (topic === 'payment' || type === 'payment') {
-      const paymentId = req.query['data.id'] || req.body.data?.id;
-      if (paymentId) {
-        const pagoInfo = await paymentInstance.get({ id: paymentId });  // Consultamos a Mercado Pago los detalles de ese pago
-        if (pagoInfo.status === 'approved') {  //pago aprobado
-          const idReservaLocal = pagoInfo.external_reference;  // Recuperacion del ID de nuestra reserva que guardamos en 'external_reference'
-       
+    const tipoNotificacion = type || topic || req.body.type; 
+    const resourceId = req.query['data.id'] || req.body.data?.id || req.query.id || req.body.id;  
+
+    // Si llega la orden de compra ( QR In-Store / QR Fijo / QR Dinámico)
+    if (tipoNotificacion === 'topic_merchant_order_wh' || tipoNotificacion === 'merchant_order') {
+      const merchantOrderInstance = new MerchantOrder(clientQR);
+      let ordenInfo;
+      try {
+        ordenInfo = await merchantOrderInstance.get({ merchantOrderId: resourceId });
+      } catch (err) {
+        console.error(`[BACKEND] Error al consultar la Orden en MP:`, err.message);
+        return;
+      }
+
+      if (ordenInfo && (ordenInfo.status === 'closed' || ordenInfo.order_status === 'paid')) {
+        const idReservaLocal = ordenInfo.external_reference;
+
+        if (idReservaLocal) {
           const reservaLocal = await Reserva.findByPk(idReservaLocal);
           if (reservaLocal) {
+            // ─── CONTROL DE CONTROL: Si ya estaba pagada, la ignoramos de forma segura ───
+            if (reservaLocal.estadoPago === 'PAGADO') {
+              return; 
+            }
+
             reservaLocal.estadoPago = 'PAGADO';
             reservaLocal.estadoReserva = 'CONFIRMADA';
             await reservaLocal.save();
-
-            console.log(`[BACKEND] Reserva #${idReservaLocal} marcada como PAGADA con éxito.`);
+            console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Orden.`);
+          } else {
+            console.log(`[BACKEND] No se encontró la reserva #${idReservaLocal} en la BD.`);
           }
         }
       }
+    } 
+    
+    // Estructura para pagos directos (Links de Pago)
+    else if (tipoNotificacion === 'payment') {
+      const paymentInstanceOnline = new Payment(clientLink); 
+      let pagoInfo;
+      try {
+        pagoInfo = await paymentInstanceOnline.get({ id: resourceId });
+      } catch (err) {
+        console.error(`[BACKEND] Error al consultar el Pago en MP:`, err.message);
+        return;
+      }
+
+      if (pagoInfo && pagoInfo.status === 'approved') {
+        const idReservaLocal = pagoInfo.external_reference;
+        const reservaLocal = await Reserva.findByPk(idReservaLocal);
+        if (reservaLocal) {
+          if (reservaLocal.estadoPago === 'PAGADO') {
+            return; 
+          }
+          reservaLocal.estadoPago = 'PAGADO';
+          reservaLocal.estadoReserva = 'CONFIRMADA';
+          await reservaLocal.save();
+          console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Payment.`);
+        }
+      }
+    } else {
+      console.log(`[BACKEND] Notificación ignorada: Tipo de evento no configurado.`);
     }
   } catch (error) {
-    console.error('Error al procesar el Webhook de Mercado Pago:', error.message);
+    console.error('Error crítico en el Webhook:', error.message);
   }
 };
 
@@ -98,17 +191,17 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
 reservaCtrl.obtenerReservas = async (req, res) => {
   try {
     const reservas = await Reserva.findAll({
-  include: [
-    {
-      association: 'pasajero',
-      include: ['usuario']
-    },
-    {
-      association: 'viaje',
-      include: ['chofer', 'auto']
-    }
-  ]
-});
+      include: [
+        {
+          association: 'pasajero',
+          include: ['usuario']
+        },
+        {
+          association: 'viaje',
+          include: ['chofer', 'auto']
+        }
+      ]
+    });
 
     res.status(200).json(reservas);
   } catch (error) {

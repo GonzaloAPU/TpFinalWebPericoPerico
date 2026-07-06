@@ -6,13 +6,14 @@ pasajeroCtrl.actualizarPasajero = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
-    const { idPasajero } = req.params;
+    const { email: emailActual } = req.params;
 
-    const pasajero = await Pasajero.findByPk(idPasajero, {
+    const pasajero = await Pasajero.findOne({
       include: [
         {
           model: Usuario,
           as: 'usuario',
+          where: { email: emailActual },
         },
       ],
       transaction,
@@ -63,15 +64,18 @@ pasajeroCtrl.actualizarPasajero = async (req, res) => {
 
     await transaction.commit();
 
-    const pasajeroActualizado = await Pasajero.findByPk(idPasajero, {
-      include: [
-        {
-          model: Usuario,
-          as: 'usuario',
-          attributes: { exclude: ['passwordHash'] },
-        },
-      ],
-    });
+    const pasajeroActualizado = await Pasajero.findByPk(
+      pasajero.idPasajero,
+      {
+        include: [
+          {
+            model: Usuario,
+            as: 'usuario',
+            attributes: { exclude: ['passwordHash'] },
+          },
+        ],
+      }
+    );
 
     return res.status(200).json({
       mensaje: 'Pasajero actualizado correctamente',

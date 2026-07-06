@@ -177,6 +177,7 @@ usuarioCtrl.login = async (req, res) => {
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         email: usuario.email,
+        telefono: usuario.telefono,
         token: token
       });
     }
@@ -230,6 +231,7 @@ usuarioCtrl.login = async (req, res) => {
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         email: usuario.email,
+        telefono: usuario.telefono,
         estadoChofer: usuario.perfilChofer.estadoChofer,
         token: token
       });

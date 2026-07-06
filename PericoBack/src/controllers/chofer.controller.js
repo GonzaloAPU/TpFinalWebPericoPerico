@@ -13,6 +13,7 @@ choferCtrl.actualizarChofer = async (req, res) => {
     password,
     licenciaConducir,
     fechaHabilitacion,
+    estadoChofer,
   } = req.body;
 
   const transaction = await sequelize.transaction();
@@ -48,9 +49,9 @@ choferCtrl.actualizarChofer = async (req, res) => {
 
     await usuario.save({ transaction });
 
-    // estadoChofer NO se toca aca; eso lo maneja cambiarEstadoChofer.
     if (licenciaConducir !== undefined) chofer.licenciaConducir = licenciaConducir;
     if (fechaHabilitacion !== undefined) chofer.fechaHabilitacion = fechaHabilitacion;
+    if (estadoChofer !== undefined) chofer.estadoChofer = estadoChofer;
 
     await chofer.save({ transaction });
 

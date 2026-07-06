@@ -2,6 +2,95 @@ const { sequelize, Usuario, Pasajero, Reserva, Viaje } = require('../models/rela
 
 const pasajeroCtrl = {};
 
+pasajeroCtrl.actualizarPasajero = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { email: emailActual } = req.params;
+
+    const pasajero = await Pasajero.findOne({
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          where: { email: emailActual },
+        },
+      ],
+      transaction,
+    });
+
+    if (!pasajero) {
+      await transaction.rollback();
+
+      return res.status(404).json({
+        mensaje: 'Pasajero no encontrado',
+      });
+    }
+
+    const {
+      nombre,
+      apellido,
+      email,
+      telefono,
+      activo,
+      calificacion,
+      cantidadReservas,
+      estadoPasajero,
+    } = req.body;
+
+    // Actualizar datos de Usuario
+    await pasajero.usuario.update(
+      {
+        nombre: nombre ?? pasajero.usuario.nombre,
+        apellido: apellido ?? pasajero.usuario.apellido,
+        email: email ?? pasajero.usuario.email,
+        telefono: telefono ?? pasajero.usuario.telefono,
+        activo: activo ?? pasajero.usuario.activo,
+      },
+      { transaction }
+    );
+
+    // Actualizar datos de Pasajero
+    await pasajero.update(
+      {
+        calificacion: calificacion ?? pasajero.calificacion,
+        cantidadReservas:
+          cantidadReservas ?? pasajero.cantidadReservas,
+        estadoPasajero:
+          estadoPasajero ?? pasajero.estadoPasajero,
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+
+    const pasajeroActualizado = await Pasajero.findByPk(
+      pasajero.idPasajero,
+      {
+        include: [
+          {
+            model: Usuario,
+            as: 'usuario',
+            attributes: { exclude: ['passwordHash'] },
+          },
+        ],
+      }
+    );
+
+    return res.status(200).json({
+      mensaje: 'Pasajero actualizado correctamente',
+      pasajero: pasajeroActualizado,
+    });
+  } catch (error) {
+    await transaction.rollback();
+
+    return res.status(500).json({
+      mensaje: 'Error al actualizar el pasajero',
+      error: error.message,
+    });
+  }
+};
+
 // Evita devolver el passwordHash en las respuestas del servidor.
 const quitarPassword = (usuario) => {
   const usuarioSinPassword = usuario.toJSON();

@@ -1,5 +1,8 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database'); // Asegúrate de que la ruta apunte a tu archivo
+const bcrypt = require('bcrypt');
+
+const SALT_ROUNDS = 10; // Número de rondas de sal para bcrypt
 
 // Modelo base del sistema.
 // Aca van los datos comunes que pueden compartir pasajeros y choferes.
@@ -41,10 +44,30 @@ const Usuario = sequelize.define(
         allowNull: false,
       },
     },
-    {
+   {
       tableName: 'usuarios',
       timestamps: true,
+      hooks: {
+        // Hashea la contraseña automáticamente cada vez que se crea un Usuario.
+        beforeCreate: async (usuario) => {
+          if (usuario.passwordHash) {
+            usuario.passwordHash = await bcrypt.hash(usuario.passwordHash, SALT_ROUNDS);
+          }
+        },
+        // Hashea la contraseña automáticamente si se actualiza (ej: "cambiar contraseña").
+        beforeUpdate: async (usuario) => {
+          if (usuario.changed('passwordHash') && usuario.passwordHash) {
+            usuario.passwordHash = await bcrypt.hash(usuario.passwordHash, SALT_ROUNDS);
+          }
+        },
+      },
     }
   );
+
+  // Compara una contraseña en texto plano contra el hash guardado.
+  Usuario.prototype.compararPassword = async function (passwordPlano) {
+    if (!this.passwordHash) return false;
+    return bcrypt.compare(passwordPlano, this.passwordHash);
+  };
 
   module.exports = Usuario;

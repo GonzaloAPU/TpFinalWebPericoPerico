@@ -2,6 +2,99 @@ const { sequelize, Usuario, Chofer, Auto, Viaje } = require('../models/relacione
 
 const choferCtrl = {};
 
+choferCtrl.actualizarChofer = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { email: emailActual } = req.params;
+
+    const chofer = await Chofer.findOne({
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          where: { email: emailActual },
+        },
+      ],
+      transaction,
+    });
+
+    if (!chofer) {
+      await transaction.rollback();
+
+      return res.status(404).json({
+        mensaje: 'Chofer no encontrado',
+      });
+    }
+
+    const {
+      nombre,
+      apellido,
+      email,
+      telefono,
+      activo,
+      licenciaConducir,
+      estadoChofer,
+      fechaHabilitacion,
+      calificacion,
+    } = req.body;
+
+    // Actualizar datos de Usuario
+    await chofer.usuario.update(
+      {
+        nombre: nombre ?? chofer.usuario.nombre,
+        apellido: apellido ?? chofer.usuario.apellido,
+        email: email ?? chofer.usuario.email,
+        telefono: telefono ?? chofer.usuario.telefono,
+        activo: activo ?? chofer.usuario.activo,
+      },
+      { transaction }
+    );
+
+    // Actualizar datos de Chofer
+    await chofer.update(
+      {
+        licenciaConducir:
+          licenciaConducir ?? chofer.licenciaConducir,
+        estadoChofer:
+          estadoChofer ?? chofer.estadoChofer,
+        fechaHabilitacion:
+          fechaHabilitacion ?? chofer.fechaHabilitacion,
+        calificacion:
+          calificacion ?? chofer.calificacion,
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+
+    const choferActualizado = await Chofer.findByPk(
+      chofer.idChofer,
+      {
+        include: [
+          {
+            model: Usuario,
+            as: 'usuario',
+            attributes: { exclude: ['passwordHash'] },
+          },
+        ],
+      }
+    );
+
+    return res.status(200).json({
+      mensaje: 'Chofer actualizado correctamente',
+      chofer: choferActualizado,
+    });
+  } catch (error) {
+    await transaction.rollback();
+
+    return res.status(500).json({
+      mensaje: 'Error al actualizar el chofer',
+      error: error.message,
+    });
+  }
+};
+
 // Evita devolver el passwordHash en las respuestas del servidor.
 const quitarPassword = (usuario) => {
   const usuarioSinPassword = usuario.toJSON();

@@ -12,7 +12,6 @@ usuarioCtrl.obtenerUsuarios = async (req, res) => {
   try {
     const usuarios = await Usuario.findAll({
       attributes: {
-        exclude: ['passwordHash'] // Oculta la contraseña
       }
     });
 
@@ -105,7 +104,6 @@ usuarioCtrl.login = async (req, res) => {
     const usuario = await Usuario.findOne({
       where: {
         email,
-        passwordHash: password,
       },
       include: [
         {
@@ -132,6 +130,16 @@ usuarioCtrl.login = async (req, res) => {
         msg: 'Credenciales incorrectas',
       });
     }
+
+    // Compara la contraseña ingresada contra el hash guardado en la base.
+    const passwordValida = await usuario.compararPassword(password);
+    if (!passwordValida) {
+      return res.json({
+        status: 0,
+        msg: 'Credenciales incorrectas',
+      });
+    }
+
 
     if (!usuario.activo) {
       return res.json({

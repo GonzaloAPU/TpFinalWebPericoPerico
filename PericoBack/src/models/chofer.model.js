@@ -38,7 +38,7 @@ const Chofer = sequelize.define(
           'ELIMINADO'
         ),
         allowNull: false,
-        defaultValue: 'INACTIVO',
+        defaultValue: 'DISPONIBLE',
       },
       fechaHabilitacion: {
         type: DataTypes.DATEONLY,

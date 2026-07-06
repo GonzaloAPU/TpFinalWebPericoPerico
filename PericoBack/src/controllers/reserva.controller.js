@@ -201,6 +201,13 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
             await reservaLocal.save();
             await reservaLocal.reload();
             console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Orden.`);
+
+            // Emision en tiempo real via WEBSOCKEt al chofer (CANAL QR)
+            req.io.emit(`pago_confirmado_reserva_${idReservaLocal}`, {
+              idReserva: idReservaLocal,
+              estadoPago: 'PAGADO',
+              estadoReserva: 'CONFIRMADA'
+            });
           } else {
             console.log(`[BACKEND] No se encontró la reserva #${idReservaLocal} en la BD.`);
           }
@@ -231,6 +238,13 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
           await reservaLocal.save();
           await reservaLocal.reload();
           console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Payment.`);
+
+          // Emision en tiempo real via WEBSOCKEt al chofer (CANAL LINK)
+          req.io.emit(`pago_confirmado_reserva_${idReservaLocal}`, {
+            idReserva: idReservaLocal,
+            estadoPago: 'PAGADO',
+            estadoReserva: 'CONFIRMADA'
+          });
         }
       }
     } else {

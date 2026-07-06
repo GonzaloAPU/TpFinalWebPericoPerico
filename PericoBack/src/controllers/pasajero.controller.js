@@ -3,89 +3,68 @@ const { sequelize, Usuario, Pasajero, Reserva, Viaje } = require('../models/rela
 const pasajeroCtrl = {};
 
 pasajeroCtrl.actualizarPasajero = async (req, res) => {
+  const {
+    nombre,
+    apellido,
+    email,
+    telefono,
+    activo,
+    password,
+    calificacion,
+    cantidadReservas,
+    estadoPasajero,
+  } = req.body;
+
   const transaction = await sequelize.transaction();
 
   try {
-    const { email: emailActual } = req.params;
-
-    const pasajero = await Pasajero.findOne({
-      include: [
-        {
-          model: Usuario,
-          as: 'usuario',
-          where: { email: emailActual },
-        },
-      ],
+    const pasajero = await Pasajero.findByPk(req.params.idPasajero, {
+      include: [{ model: Usuario, as: 'usuario' }],
       transaction,
     });
 
     if (!pasajero) {
       await transaction.rollback();
-
       return res.status(404).json({
         mensaje: 'Pasajero no encontrado',
       });
     }
 
-    const {
-      nombre,
-      apellido,
-      email,
-      telefono,
-      activo,
-      calificacion,
-      cantidadReservas,
-      estadoPasajero,
-    } = req.body;
+    const usuario = pasajero.usuario;
 
-    // Actualizar datos de Usuario
-    await pasajero.usuario.update(
-      {
-        nombre: nombre ?? pasajero.usuario.nombre,
-        apellido: apellido ?? pasajero.usuario.apellido,
-        email: email ?? pasajero.usuario.email,
-        telefono: telefono ?? pasajero.usuario.telefono,
-        activo: activo ?? pasajero.usuario.activo,
-      },
-      { transaction }
-    );
+    // Solo se actualizan los campos que el cliente mando en el body.
+    if (nombre !== undefined) usuario.nombre = nombre;
+    if (apellido !== undefined) usuario.apellido = apellido;
+    if (email !== undefined) usuario.email = email;
+    if (telefono !== undefined) usuario.telefono = telefono;
+    if (activo !== undefined) usuario.activo = activo;
 
-    // Actualizar datos de Pasajero
-    await pasajero.update(
-      {
-        calificacion: calificacion ?? pasajero.calificacion,
-        cantidadReservas:
-          cantidadReservas ?? pasajero.cantidadReservas,
-        estadoPasajero:
-          estadoPasajero ?? pasajero.estadoPasajero,
-      },
-      { transaction }
-    );
+    // Si mandan "password", se reasigna passwordHash: el hook beforeUpdate
+    // del modelo Usuario se encarga de hashearla con bcrypt automaticamente.
+    if (password !== undefined && password !== '') {
+      usuario.passwordHash = password;
+    }
+
+    await usuario.save({ transaction });
+
+    if (calificacion !== undefined) pasajero.calificacion = calificacion;
+    if (cantidadReservas !== undefined) pasajero.cantidadReservas = cantidadReservas;
+    if (estadoPasajero !== undefined) pasajero.estadoPasajero = estadoPasajero;
+
+    await pasajero.save({ transaction });
 
     await transaction.commit();
 
-    const pasajeroActualizado = await Pasajero.findByPk(
-      pasajero.idPasajero,
-      {
-        include: [
-          {
-            model: Usuario,
-            as: 'usuario',
-            attributes: { exclude: ['passwordHash'] },
-          },
-        ],
-      }
-    );
-
     return res.status(200).json({
       mensaje: 'Pasajero actualizado correctamente',
-      pasajero: pasajeroActualizado,
+      usuario: quitarPassword(usuario),
+      pasajero,
     });
   } catch (error) {
     await transaction.rollback();
 
-    return res.status(500).json({
-      mensaje: 'Error al actualizar el pasajero',
+    return res.status(400).json({
+      mensaje: 'No se pudo actualizar el pasajero',
       error: error.message,
     });
   }

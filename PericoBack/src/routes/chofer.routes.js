@@ -21,7 +21,8 @@ router.get('/:idChofer/autos', choferCtrl.obtenerAutosDelChofer);
 // Frontend: trae los viajes del boton "Ver Mis Viajes".
 router.get('/:idChofer/viajes', choferCtrl.obtenerViajesDelChofer);
 
-router.put('/email/:email', choferCtrl.actualizarChofer);
+// Frontend: actualiza los datos del chofer.
+router.patch('/:idChofer', choferCtrl.actualizarChofer);
 
 
 module.exports = router;

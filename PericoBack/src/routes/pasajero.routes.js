@@ -8,6 +8,6 @@ router.get('/:idPasajero/historial', pasajeroCtrl.obtenerHistorialPasajero);
 router.patch('/:idPasajero/ubicacion', pasajeroCtrl.actualizarUbicacionPasajero);
 router.get('/:idPasajero', pasajeroCtrl.obtenerPasajero);
 router.post('/', pasajeroCtrl.registrarPasajero);
-router.put('/:idPasajero', pasajeroCtrl.actualizarPasajero);
+router.put('/email/:email', pasajeroCtrl.actualizarPasajero);
 
 module.exports = router;

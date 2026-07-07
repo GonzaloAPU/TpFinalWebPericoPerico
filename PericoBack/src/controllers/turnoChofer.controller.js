@@ -5,6 +5,15 @@ const turnoChoferCtrl = {};
 
 // Registrar nuevo turno
 turnoChoferCtrl.createTurno = async (req, res) => {
+    /*
+      #swagger.tags = ['Turnos']
+      #swagger.summary = 'Registrar un turno chofer-auto'
+      #swagger.description = 'Requiere rol ADMIN.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/TurnoChofer' } }
+      #swagger.responses[200] = { description: 'Turno guardado.' }
+      #swagger.responses[400] = { description: 'Error procesando operacion.' }
+    */
     try {
         // req.body debe recibir: idAuto, idChofer, fecha, horaInicio, horaFin
         const nuevoTurno = await TurnoChofer.create(req.body);
@@ -18,6 +27,12 @@ turnoChoferCtrl.createTurno = async (req, res) => {
 
 // Obtener todos los turnos
 turnoChoferCtrl.getTurnos = async (req,res) =>{
+    /*
+      #swagger.tags = ['Turnos']
+      #swagger.summary = 'Obtener todos los turnos'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.responses[200] = { description: 'Lista de turnos.', schema: [{ $ref: '#/definitions/TurnoChofer' }] }
+    */
     try{
         const turnos = await TurnoChofer.findAll()
         res.json(turnos)
@@ -30,6 +45,16 @@ turnoChoferCtrl.getTurnos = async (req,res) =>{
 // Editar datos del turno 
 
 turnoChoferCtrl.editTurno = async (req, res) => {
+  /*
+    #swagger.tags = ['Turnos']
+    #swagger.summary = 'Editar un turno'
+    #swagger.description = 'Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del turno.' }
+    #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/TurnoChofer' } }
+    #swagger.responses[200] = { description: 'Turno actualizado.' }
+    #swagger.responses[404] = { description: 'Turno no encontrado.' }
+  */
   try {
     const [actualizados] = await TurnoChofer.update(req.body, {
       where: {
@@ -70,6 +95,15 @@ turnoChoferCtrl.editTurno = async (req, res) => {
 }*/
 
 turnoChoferCtrl.deleteTurno = async (req, res) => {
+  /*
+    #swagger.tags = ['Turnos']
+    #swagger.summary = 'Eliminar un turno'
+    #swagger.description = 'Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del turno.' }
+    #swagger.responses[200] = { description: 'Turno eliminado.' }
+    #swagger.responses[404] = { description: 'Turno no encontrado.' }
+  */
   try {
     const eliminados = await TurnoChofer.destroy({
       where: {

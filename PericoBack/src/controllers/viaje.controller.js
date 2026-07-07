@@ -9,6 +9,13 @@ const viajeCtrl = {};
 
 // Obtener TODOS los viajes con todas sus relaciones 
 viajeCtrl.getViajes = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Obtener todos los viajes'
+      #swagger.description = 'Incluye chofer, auto y reservas.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.responses[200] = { description: 'Lista de viajes.', schema: [{ $ref: '#/definitions/Viaje' }] }
+    */
     try {
         const viajes = await Viaje.findAll({
             include: ['chofer', 'auto', 'reservas'] 
@@ -22,6 +29,14 @@ viajeCtrl.getViajes = async (req, res) => {
 
 // Obtener un viaje específico 
 viajeCtrl.getViaje = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Obtener un viaje por ID'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del viaje.' }
+      #swagger.responses[200] = { description: 'Viaje encontrado.', schema: { $ref: '#/definitions/Viaje' } }
+      #swagger.responses[404] = { description: 'Viaje no encontrado.' }
+    */
     try {
         const viaje = await Viaje.findByPk(req.params.id, {
             include: ['chofer', 'auto', 'reservas'] 
@@ -64,6 +79,16 @@ viajeCtrl.getViaje = async (req, res) => {
 };*/
 
 viajeCtrl.getViajesDisponibles = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Buscar viajes disponibles'
+      #swagger.description = 'Viajes ABIERTOS con asientos > 0, filtrados por origen y destino.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['origen'] = { in: 'query', required: true, type: 'string', description: 'Ciudad de origen.' }
+      #swagger.parameters['destino'] = { in: 'query', required: true, type: 'string', description: 'Ciudad de destino.' }
+      #swagger.responses[200] = { description: 'Viajes disponibles.', schema: [{ $ref: '#/definitions/Viaje' }] }
+      #swagger.responses[400] = { description: 'Debe enviar origen y destino.' }
+    */
     try {
         const { origen, destino } = req.query;
 
@@ -122,6 +147,15 @@ viajeCtrl.getViajesDisponibles = async (req, res) => {
 
 // Registrar un nuevo viaje
 viajeCtrl.createViaje = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Registrar un viaje'
+      #swagger.description = 'Asigna chofer y auto. Requiere rol ADMIN. Los asientos disponibles se toman de la capacidad del auto.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/Viaje' } }
+      #swagger.responses[200] = { description: 'Viaje guardado de forma exitosa.' }
+      #swagger.responses[400] = { description: 'Chofer o Auto no válidos, o auto ya EN_CURSO.' }
+    */
     try {
         const { idChofer, idAuto } = req.body;
 
@@ -162,6 +196,16 @@ viajeCtrl.createViaje = async (req, res) => {
 
 // Editar datos del viaje
 viajeCtrl.editViaje = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Editar un viaje'
+      #swagger.description = 'Requiere rol ADMIN.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del viaje.' }
+      #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/Viaje' } }
+      #swagger.responses[200] = { description: 'Viaje actualizado con éxito.' }
+      #swagger.responses[404] = { description: 'Viaje no encontrado.' }
+    */
     try {
         const [actualizados] = await Viaje.update(req.body, {
             where: { idViaje: req.params.id } 
@@ -178,6 +222,18 @@ viajeCtrl.editViaje = async (req, res) => {
 
 // Cambiar estado del viaje
 viajeCtrl.changeEstado = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Cambiar estado del viaje'
+      #swagger.description = "Estados válidos: ABIERTO, COMPLETO, EN_CURSO, FINALIZADO, CANCELADO. Solo ADMIN o el chofer asignado."
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del viaje.' }
+      #swagger.parameters['body'] = { in: 'body', required: true, schema: { estado: 'EN_CURSO' } }
+      #swagger.responses[200] = { description: 'Estado del viaje actualizado.' }
+      #swagger.responses[400] = { description: 'Estado de viaje no válido.' }
+      #swagger.responses[403] = { description: 'No tenes permiso para modificar este viaje.' }
+      #swagger.responses[404] = { description: 'Viaje no encontrado.' }
+    */
     try {
         const idViaje = req.params.id;
         const estado = req.body.estado;
@@ -211,6 +267,17 @@ viajeCtrl.changeEstado = async (req, res) => {
 
 // Actualizar asientos disponibles del viaje
 viajeCtrl.actualizarAsientosDisponibles = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Actualizar asientos disponibles'
+      #swagger.description = 'Se dispara al reservar. No puede superar la capacidad del auto.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del viaje.' }
+      #swagger.parameters['body'] = { in: 'body', required: true, schema: { asientosDisponibles: 3 } }
+      #swagger.responses[200] = { description: 'Asientos disponibles actualizados.' }
+      #swagger.responses[400] = { description: 'Valor inválido o supera la capacidad del auto.' }
+      #swagger.responses[404] = { description: 'Viaje no encontrado.' }
+    */
     try {
         const idViaje = req.params.id;
         const { asientosDisponibles } = req.body;
@@ -256,6 +323,14 @@ viajeCtrl.actualizarAsientosDisponibles = async (req, res) => {
 
 // Eliminar un viaje
 viajeCtrl.deleteViaje = async (req, res) => {
+    /*
+      #swagger.tags = ['Viajes']
+      #swagger.summary = 'Eliminar un viaje'
+      #swagger.description = 'Requiere rol ADMIN.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del viaje.' }
+      #swagger.responses[200] = { description: 'Viaje eliminado.' }
+    */
     try {
         await Viaje.destroy({
             where: { idViaje: req.params.id }

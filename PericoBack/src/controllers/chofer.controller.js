@@ -4,6 +4,20 @@ const choferCtrl = {};
 
 // El chofer modifica sus propios datos (perfil Usuario + perfil Chofer).
 choferCtrl.actualizarChofer = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Actualizar chofer'
+    #swagger.description = 'Actualiza los datos de Usuario y del perfil Chofer. Solo se modifican los campos enviados.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idChofer'] = { in: 'path', required: true, type: 'integer', description: 'ID del chofer.' }
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { $ref: '#/definitions/Chofer' }
+    }
+    #swagger.responses[200] = { description: 'Chofer actualizado correctamente.' }
+    #swagger.responses[404] = { description: 'Chofer no encontrado.' }
+  */
   const {
     nombre,
     apellido,
@@ -109,6 +123,18 @@ const validarUbicacion = (latitud, longitud, precision) => {
 };
 
 choferCtrl.registrarChofer = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Registrar un chofer'
+    #swagger.description = 'Crea un Usuario con rol CHOFER y su perfil Chofer asociado. Ruta pública (registro).'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { $ref: '#/definitions/Usuario' }
+    }
+    #swagger.responses[201] = { description: 'Chofer registrado correctamente.' }
+    #swagger.responses[400] = { description: 'No se pudo registrar el chofer.' }
+  */
   const {
     nombre,
     apellido,
@@ -169,6 +195,16 @@ choferCtrl.registrarChofer = async (req, res) => {
 };
 
 choferCtrl.obtenerChoferes = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Obtener todos los choferes'
+    #swagger.description = 'Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = {
+      description: 'Lista de choferes.',
+      schema: [{ $ref: '#/definitions/Chofer' }]
+    }
+  */
   try {
     // Trae los choferes junto con los datos del usuario relacionado.
     const choferes = await Chofer.findAll({
@@ -192,6 +228,14 @@ choferCtrl.obtenerChoferes = async (req, res) => {
 
 // Trae los datos completos de un chofer puntual junto con su usuario.
 choferCtrl.obtenerChoferPorId = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Obtener un chofer por ID'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idChofer'] = { in: 'path', required: true, type: 'integer', description: 'ID del chofer.' }
+    #swagger.responses[200] = { description: 'Chofer encontrado.', schema: { $ref: '#/definitions/Chofer' } }
+    #swagger.responses[404] = { description: 'Chofer no encontrado.' }
+  */
   try {
     const chofer = await Chofer.findByPk(req.params.idChofer, {
       include: [
@@ -222,6 +266,21 @@ choferCtrl.obtenerChoferPorId = async (req, res) => {
 
 // Cambia solo el estado operativo del chofer.
 choferCtrl.cambiarEstadoChofer = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Cambiar estado del chofer'
+    #swagger.description = "Estados válidos: DISPONIBLE, EN_VIAJE, DESCANSO, SUSPENDIDO, INACTIVO, ELIMINADO."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idChofer'] = { in: 'path', required: true, type: 'integer', description: 'ID del chofer.' }
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { estadoChofer: 'DISPONIBLE' }
+    }
+    #swagger.responses[200] = { description: 'Estado actualizado.' }
+    #swagger.responses[400] = { description: 'Estado no válido.' }
+    #swagger.responses[404] = { description: 'Chofer no encontrado.' }
+  */
   try {
     const estadoChofer = req.body.estadoChofer || req.body.estado;
     const estadosValidos = [
@@ -268,6 +327,20 @@ choferCtrl.cambiarEstadoChofer = async (req, res) => {
 
 // Actualiza la ubicacion actual del chofer.
 choferCtrl.actualizarUbicacionChofer = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Actualizar ubicación del chofer'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idChofer'] = { in: 'path', required: true, type: 'integer', description: 'ID del chofer.' }
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { latitud: -24.1858, longitud: -65.2995, precision: 15.5 }
+    }
+    #swagger.responses[200] = { description: 'Ubicación actualizada.' }
+    #swagger.responses[400] = { description: 'Latitud/longitud/precision no válida.' }
+    #swagger.responses[404] = { description: 'Chofer no encontrado.' }
+  */
   try {
     const { latitud, longitud, precision } = req.body;
     const resultado = validarUbicacion(latitud, longitud, precision);
@@ -317,6 +390,14 @@ choferCtrl.actualizarUbicacionChofer = async (req, res) => {
 
 // Trae todos los autos relacionados al chofer por sus turnos.
 choferCtrl.obtenerAutosDelChofer = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Autos asignados al chofer'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idChofer'] = { in: 'path', required: true, type: 'integer', description: 'ID del chofer.' }
+    #swagger.responses[200] = { description: 'Autos del chofer.', schema: [{ $ref: '#/definitions/Auto' }] }
+    #swagger.responses[404] = { description: 'Chofer no encontrado.' }
+  */
   try {
     const chofer = await Chofer.findByPk(req.params.idChofer, {
       include: [
@@ -346,6 +427,15 @@ choferCtrl.obtenerAutosDelChofer = async (req, res) => {
 
 // Trae los viajes que se muestran en el boton "Ver Mis Viajes".
 choferCtrl.obtenerViajesDelChofer = async (req, res) => {
+  /*
+    #swagger.tags = ['Choferes']
+    #swagger.summary = 'Viajes del chofer'
+    #swagger.description = "Usado por el botón 'Ver Mis Viajes' del frontend."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idChofer'] = { in: 'path', required: true, type: 'integer', description: 'ID del chofer.' }
+    #swagger.responses[200] = { description: 'Viajes del chofer.', schema: [{ $ref: '#/definitions/Viaje' }] }
+    #swagger.responses[404] = { description: 'Chofer no encontrado.' }
+  */
   try {
     const chofer = await Chofer.findByPk(req.params.idChofer);
 

@@ -21,6 +21,19 @@ const quitarPassword = (usuario) => {
 };
 
 adminCtrl.registrarAdmin = async (req, res) => {
+  /*
+    #swagger.tags = ['Admins']
+    #swagger.summary = 'Registrar un admin'
+    #swagger.description = 'Crea un Usuario con rol ADMIN y su perfil Admin asociado. Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { $ref: '#/definitions/Usuario' }
+    }
+    #swagger.responses[201] = { description: 'Admin registrado correctamente.' }
+    #swagger.responses[400] = { description: 'No se pudo registrar el admin.' }
+  */
   const {
     nombre,
     apellido,
@@ -75,6 +88,16 @@ adminCtrl.registrarAdmin = async (req, res) => {
 };
 
 adminCtrl.obtenerAdmins = async (req, res) => {
+  /*
+    #swagger.tags = ['Admins']
+    #swagger.summary = 'Obtener todos los admins'
+    #swagger.description = 'Retorna los admins junto con los datos del usuario relacionado. Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = {
+      description: 'Lista de admins.',
+      schema: [{ $ref: '#/definitions/Admin' }]
+    }
+  */
   try {
     // Trae los admins junto con los datos del usuario relacionado.
     const admins = await Admin.findAll({
@@ -98,6 +121,14 @@ adminCtrl.obtenerAdmins = async (req, res) => {
 
 // GET /api/admins/dashboard
 adminCtrl.getDashboard = async (req, res) => {
+  /*
+    #swagger.tags = ['Admins']
+    #swagger.summary = 'Dashboard de métricas'
+    #swagger.description = 'Totales y estadísticas del sistema (usuarios, viajes, reservas, etc). Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = { description: 'Dashboard obtenido correctamente.' }
+    #swagger.responses[500] = { description: 'Error al obtener los datos del dashboard.' }
+  */
   try {
     const totalUsuarios = await Usuario.count();
     const totalPasajeros = await Pasajero.count();

@@ -3,6 +3,12 @@ const autoCtrl = {};
 
 // Obtener todos los autos
 autoCtrl.getAutos = async (req, res) =>{
+    /*
+      #swagger.tags = ['Autos']
+      #swagger.summary = 'Obtener todos los autos'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.responses[200] = { description: 'Lista de autos.', schema: [{ $ref: '#/definitions/Auto' }] }
+    */
     try{
         const autos = await Auto.findAll()
         res.json(autos)
@@ -14,6 +20,15 @@ autoCtrl.getAutos = async (req, res) =>{
 
 // Obtener auto con sus choferes
 autoCtrl.getAuto = async (req, res) => {
+    /*
+      #swagger.tags = ['Autos']
+      #swagger.summary = 'Obtener un auto por ID'
+      #swagger.description = 'Incluye los choferes asignados vía los turnos.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del auto.' }
+      #swagger.responses[200] = { description: 'Auto encontrado.', schema: { $ref: '#/definitions/Auto' } }
+      #swagger.responses[404] = { description: 'Auto no encontrado.' }
+    */
     try {
        const auto = await Auto.findByPk(req.params.id,{
             include:'choferes' // Trae automáticamente los choferes y los datos del turno
@@ -30,6 +45,15 @@ autoCtrl.getAuto = async (req, res) => {
 
 // Regristrar un nuevo auto
 autoCtrl.createAuto = async (req, res) =>{
+    /*
+      #swagger.tags = ['Autos']
+      #swagger.summary = 'Registrar un auto'
+      #swagger.description = 'Requiere rol ADMIN.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/Auto' } }
+      #swagger.responses[200] = { description: 'Auto guardado.' }
+      #swagger.responses[400] = { description: 'Error procesando operacion.' }
+    */
     try{
         await Auto.create(req.body)
         res.json({ status: '1', msg: 'Auto guardado.' });
@@ -52,6 +76,16 @@ autoCtrl.createAuto = async (req, res) =>{
 }*/
 
 autoCtrl.editAuto = async (req, res) => {
+  /*
+    #swagger.tags = ['Autos']
+    #swagger.summary = 'Editar un auto'
+    #swagger.description = 'Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del auto.' }
+    #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/Auto' } }
+    #swagger.responses[200] = { description: 'Auto actualizado.' }
+    #swagger.responses[404] = { description: 'Auto no encontrado.' }
+  */
   try {
     const [actualizados] = await Auto.update(req.body, {
       where: {
@@ -82,6 +116,17 @@ autoCtrl.editAuto = async (req, res) => {
 
 // Cambiar estado del auto
 autoCtrl.changeEstado = async (req, res) => {
+    /*
+      #swagger.tags = ['Autos']
+      #swagger.summary = 'Cambiar estado del auto'
+      #swagger.description = "Estados válidos: DISPONIBLE, EN_VIAJE, EN_TALLER, INACTIVO. Requiere rol ADMIN."
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del auto.' }
+      #swagger.parameters['body'] = { in: 'body', required: true, schema: { estado: 'DISPONIBLE' } }
+      #swagger.responses[200] = { description: 'Estado del auto actualizado.' }
+      #swagger.responses[400] = { description: 'Estado de auto no válido.' }
+      #swagger.responses[404] = { description: 'Auto no encontrado.' }
+    */
     try {
         const idAuto  = req.params.id;
         const estado  = req.body.estado;
@@ -109,6 +154,14 @@ autoCtrl.changeEstado = async (req, res) => {
 
 // Eliminar un auto
 autoCtrl.deleteAuto = async (req, res) => {
+    /*
+      #swagger.tags = ['Autos']
+      #swagger.summary = 'Eliminar un auto'
+      #swagger.description = 'Requiere rol ADMIN.'
+      #swagger.security = [{ "bearerAuth": [] }]
+      #swagger.parameters['id'] = { in: 'path', required: true, type: 'integer', description: 'ID del auto.' }
+      #swagger.responses[200] = { description: 'Auto eliminado.' }
+    */
     try {
         await Auto.destroy({
             where: { idAuto: req.params.id }

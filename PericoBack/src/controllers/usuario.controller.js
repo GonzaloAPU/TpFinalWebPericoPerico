@@ -9,6 +9,18 @@ const usuarioCtrl = {};
 
 // Obtener todos los usuarios
 usuarioCtrl.obtenerUsuarios = async (req, res) => {
+  /*
+    #swagger.tags = ['Usuarios']
+    #swagger.summary = 'Obtener todos los usuarios'
+    #swagger.description = 'Retorna la lista completa de usuarios. Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = {
+      description: 'Lista de usuarios obtenida con éxito.',
+      schema: [{ $ref: '#/definitions/Usuario' }]
+    }
+    #swagger.responses[401] = { description: 'No autenticado.' }
+    #swagger.responses[403] = { description: 'No tiene rol ADMIN.' }
+  */
   try {
     const usuarios = await Usuario.findAll({
       attributes: {
@@ -27,6 +39,18 @@ usuarioCtrl.obtenerUsuarios = async (req, res) => {
 
 //logueo con google
 usuarioCtrl.loginGoogle = async (req, res) => {
+  /*
+    #swagger.tags = ['Usuarios']
+    #swagger.summary = 'Login con Google'
+    #swagger.description = 'Valida un idToken de Google y crea el usuario si no existe.'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { token: 'eyJhbGciOiJSUzI1NiIsInR5cCI6...' }
+    }
+    #swagger.responses[200] = { description: 'Login exitoso, retorna el token JWT propio.' }
+    #swagger.responses[401] = { description: 'Token de Google inválido.' }
+  */
   const { token } = req.body;
 
   try {
@@ -91,6 +115,18 @@ usuarioCtrl.loginGoogle = async (req, res) => {
 
 // Login único para todos los usuarios
 usuarioCtrl.login = async (req, res) => {
+  /*
+    #swagger.tags = ['Usuarios']
+    #swagger.summary = 'Login (Pasajero, Chofer o Admin)'
+    #swagger.description = 'Valida email y password, y retorna un token JWT según el rol del usuario.'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { $ref: '#/definitions/LoginRequest' }
+    }
+    #swagger.responses[200] = { description: 'Login exitoso o credenciales incorrectas (status: 0/1).' }
+    #swagger.responses[400] = { description: 'Faltan credenciales.' }
+  */
   const { email, password } = req.body;
 
   if (!email || !password) {

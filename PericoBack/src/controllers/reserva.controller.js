@@ -50,6 +50,16 @@ const cancelarReservaConTransaccion = async (idReserva, transaction) => {
 };
 
 reservaCtrl.registrarReserva = async (req, res) => {
+  /*
+    #swagger.tags = ['Reservas']
+    #swagger.summary = 'Registrar una reserva'
+    #swagger.description = "Crea la reserva y, según 'tipoCanal', genera el medio de pago (QR, LINK o EFECTIVO)."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['tipoCanal'] = { in: 'query', required: true, type: 'string', description: "'QR', 'LINK' o 'EFECTIVO'." }
+    #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/Reserva' } }
+    #swagger.responses[201] = { description: 'Reserva creada con éxito.' }
+    #swagger.responses[400] = { description: 'Falta tipoCanal o error al crear la reserva / al consultar Mercado Pago.' }
+  */
   try {
     const { tipoCanal } = req.query;
 
@@ -167,6 +177,12 @@ reservaCtrl.registrarReserva = async (req, res) => {
 
 
 reservaCtrl.recibirNotificacionPago = async (req, res) => {
+  /*
+    #swagger.tags = ['Reservas']
+    #swagger.summary = 'Webhook de Mercado Pago'
+    #swagger.description = 'Ruta pública, sin JWT. La llama Mercado Pago para notificar pagos/ordenes. Confirma la reserva y emite el evento por WebSocket.'
+    #swagger.responses[200] = { description: "Respuesta rápida 'OK' para Mercado Pago." }
+  */
   try {
     const { topic, type } = req.query;
     
@@ -257,6 +273,16 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
 
 
 reservaCtrl.generarQrReserva= async (req, res) => {
+  /*
+    #swagger.tags = ['Reservas']
+    #swagger.summary = 'Generar QR de pago para una reserva existente'
+    #swagger.description = 'Requiere rol ADMIN o PASAJERO (dueño de la reserva).'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idReserva'] = { in: 'path', required: true, type: 'integer', description: 'ID de la reserva.' }
+    #swagger.responses[200] = { description: 'Código QR generado con éxito.' }
+    #swagger.responses[400] = { description: 'La reserva ya fue abonada, o error con Mercado Pago.' }
+    #swagger.responses[404] = { description: 'Reserva no encontrada.' }
+  */
   try {
     const { idReserva } = req.params; 
 
@@ -336,6 +362,16 @@ reservaCtrl.generarQrReserva= async (req, res) => {
 
 
 reservaCtrl.registrarPagoEfectivo = async (req, res) => {
+  /*
+    #swagger.tags = ['Reservas']
+    #swagger.summary = 'Registrar pago en efectivo'
+    #swagger.description = 'Lo hace el CHOFER al recibir el pago, o ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idReserva'] = { in: 'path', required: true, type: 'integer', description: 'ID de la reserva.' }
+    #swagger.responses[200] = { description: 'Pago en efectivo registrado con éxito.' }
+    #swagger.responses[400] = { description: 'La reserva ya figura como PAGADA.' }
+    #swagger.responses[404] = { description: 'Reserva no encontrada.' }
+  */
   try {
     const { idReserva } = req.params; 
 
@@ -376,6 +412,13 @@ reservaCtrl.registrarPagoEfectivo = async (req, res) => {
 
 
 reservaCtrl.obtenerReservas = async (req, res) => {
+  /*
+    #swagger.tags = ['Reservas']
+    #swagger.summary = 'Obtener todas las reservas'
+    #swagger.description = 'Requiere rol ADMIN. Incluye pasajero, viaje, chofer y auto.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = { description: 'Lista de reservas.', schema: [{ $ref: '#/definitions/Reserva' }] }
+  */
   try {
     const reservas = await Reserva.findAll({
       include: [
@@ -401,6 +444,17 @@ reservaCtrl.obtenerReservas = async (req, res) => {
 
 
 reservaCtrl.cambiarEstadoReserva = async (req, res) => {
+  /*
+    #swagger.tags = ['Reservas']
+    #swagger.summary = 'Cambiar estado de una reserva'
+    #swagger.description = "Estados válidos: PENDIENTE, CONFIRMADA, CANCELADA, UTILIZADA, NO_PRESENTADO. Si es CANCELADA, devuelve los asientos al viaje. Requiere rol ADMIN o CHOFER."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idReserva'] = { in: 'path', required: true, type: 'integer', description: 'ID de la reserva.' }
+    #swagger.parameters['body'] = { in: 'body', required: true, schema: { estado: 'CONFIRMADA' } }
+    #swagger.responses[200] = { description: 'Estado de reserva actualizado correctamente.' }
+    #swagger.responses[400] = { description: 'Estado de reserva no valido.' }
+    #swagger.responses[404] = { description: 'Reserva no encontrada.' }
+  */
   const estado = req.body.estado || req.body.estadoReserva;
 
   if (!estadosReservaValidos.includes(estado)) {
@@ -456,6 +510,16 @@ reservaCtrl.cambiarEstadoReserva = async (req, res) => {
 
 
 reservaCtrl.cancelarReserva = async (req, res) => {
+  /*
+    #swagger.tags = ['Reservas']
+    #swagger.summary = 'Cancelar una reserva'
+    #swagger.description = 'Requiere rol ADMIN o el PASAJERO dueño de la reserva. Devuelve los asientos al viaje.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idReserva'] = { in: 'path', required: true, type: 'integer', description: 'ID de la reserva.' }
+    #swagger.responses[200] = { description: 'Reserva cancelada correctamente y asientos devueltos al viaje.' }
+    #swagger.responses[403] = { description: 'No tenes permiso para cancelar esta reserva.' }
+    #swagger.responses[404] = { description: 'Reserva no encontrada.' }
+  */
   const transaction = await sequelize.transaction();
 
   try {

@@ -4,6 +4,8 @@ const sequelize = require('./src/models/relaciones').sequelize;
 require('dotenv').config(); 
 const http = require('http');
 const { Server } = require('socket.io');
+const swaggerUi = require('swagger-ui-express');
+const swaggerFile = require('./swagger_output.json');
 
 var app = express();
 
@@ -36,6 +38,7 @@ app.use('/api/turnos', require('./src/routes/turnoChofer.routes'));
 app.use('/api/viajes', require('./src/routes/viaje.routes'));
 app.use('/api/reservas', require('./src/routes/reserva.routes'));
 app.use('/api/usuarios', require('./src/routes/usuario.routes'));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 // Escuchador de conexiones en vivo 
 io.on('connection', (socket) => {

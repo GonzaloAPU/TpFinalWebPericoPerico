@@ -3,6 +3,20 @@ const { sequelize, Usuario, Pasajero, Reserva, Viaje } = require('../models/rela
 const pasajeroCtrl = {};
 
 pasajeroCtrl.actualizarPasajero = async (req, res) => {
+  /*
+    #swagger.tags = ['Pasajeros']
+    #swagger.summary = 'Actualizar pasajero'
+    #swagger.description = 'Actualiza los datos de Usuario y del perfil Pasajero. Solo se modifican los campos enviados.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idPasajero'] = { in: 'path', required: true, type: 'integer', description: 'ID del pasajero.' }
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { $ref: '#/definitions/Pasajero' }
+    }
+    #swagger.responses[200] = { description: 'Pasajero actualizado correctamente.' }
+    #swagger.responses[404] = { description: 'Pasajero no encontrado.' }
+  */
   const {
     nombre,
     apellido,
@@ -105,6 +119,18 @@ const validarUbicacion = (latitud, longitud, precision) => {
 };
 
 pasajeroCtrl.registrarPasajero = async (req, res) => {
+  /*
+    #swagger.tags = ['Pasajeros']
+    #swagger.summary = 'Registrar un pasajero'
+    #swagger.description = 'Crea un Usuario con rol PASAJERO y su perfil Pasajero asociado. Ruta pública (registro).'
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { $ref: '#/definitions/Usuario' }
+    }
+    #swagger.responses[201] = { description: 'Pasajero registrado correctamente.' }
+    #swagger.responses[400] = { description: 'No se pudo registrar el pasajero.' }
+  */
   const {
     nombre,
     apellido,
@@ -163,6 +189,16 @@ pasajeroCtrl.registrarPasajero = async (req, res) => {
 };
 
 pasajeroCtrl.obtenerPasajeros = async (req, res) => {
+  /*
+    #swagger.tags = ['Pasajeros']
+    #swagger.summary = 'Obtener todos los pasajeros'
+    #swagger.description = 'Retorna los pasajeros junto con los datos del usuario relacionado. Requiere rol ADMIN.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = {
+      description: 'Lista de pasajeros.',
+      schema: [{ $ref: '#/definitions/Pasajero' }]
+    }
+  */
   try {
     // Trae los pasajeros junto con los datos del usuario relacionado.
     const pasajeros = await Pasajero.findAll({
@@ -185,6 +221,15 @@ pasajeroCtrl.obtenerPasajeros = async (req, res) => {
 };
 
 pasajeroCtrl.obtenerPasajero = async (req, res) => {
+  /*
+    #swagger.tags = ['Pasajeros']
+    #swagger.summary = 'Obtener un pasajero por ID'
+    #swagger.description = 'Trae el perfil del pasajero, su usuario y sus reservas con el viaje asociado.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idPasajero'] = { in: 'path', required: true, type: 'integer', description: 'ID del pasajero.' }
+    #swagger.responses[200] = { description: 'Pasajero encontrado.', schema: { $ref: '#/definitions/Pasajero' } }
+    #swagger.responses[404] = { description: 'Pasajero no encontrado.' }
+  */
   try {
     // Trae el perfil completo del pasajero, sus datos de usuario y sus reservas.
     const pasajero = await Pasajero.findByPk(req.params.idPasajero, {
@@ -224,6 +269,20 @@ pasajeroCtrl.obtenerPasajero = async (req, res) => {
 };
 
 pasajeroCtrl.actualizarUbicacionPasajero = async (req, res) => {
+  /*
+    #swagger.tags = ['Pasajeros']
+    #swagger.summary = 'Actualizar ubicación del pasajero'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idPasajero'] = { in: 'path', required: true, type: 'integer', description: 'ID del pasajero.' }
+    #swagger.parameters['body'] = {
+      in: 'body',
+      required: true,
+      schema: { latitud: -24.1858, longitud: -65.2995, precision: 15.5 }
+    }
+    #swagger.responses[200] = { description: 'Ubicación actualizada.' }
+    #swagger.responses[400] = { description: 'Latitud/longitud/precision no válida.' }
+    #swagger.responses[404] = { description: 'Pasajero no encontrado.' }
+  */
   try {
     const { latitud, longitud, precision } = req.body;
     const resultado = validarUbicacion(latitud, longitud, precision);
@@ -272,6 +331,17 @@ pasajeroCtrl.actualizarUbicacionPasajero = async (req, res) => {
 };
 
 pasajeroCtrl.obtenerHistorialPasajero = async (req, res) => {
+  /*
+    #swagger.tags = ['Pasajeros']
+    #swagger.summary = 'Historial de reservas del pasajero'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['idPasajero'] = { in: 'path', required: true, type: 'integer', description: 'ID del pasajero.' }
+    #swagger.responses[200] = {
+      description: 'Historial de reservas con su viaje asociado.',
+      schema: [{ $ref: '#/definitions/Reserva' }]
+    }
+    #swagger.responses[404] = { description: 'Pasajero no encontrado.' }
+  */
   try {
     // El historial se arma desde las reservas del pasajero e incluye el viaje asociado.
     const pasajero = await Pasajero.findByPk(req.params.idPasajero);

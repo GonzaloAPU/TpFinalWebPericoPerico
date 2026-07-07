@@ -1,542 +1,397 @@
-const { MercadoPagoConfig, Payment, MerchantOrder, Preference} = require('mercadopago'); 
-const { sequelize, Reserva, Viaje } = require('../models/relaciones');
+const { sequelize, Usuario, Chofer, Auto, Viaje } = require('../models/relaciones');
 
-// Inicialización del cliente con Access Token usando variables de entorno (.env)
-const clientQR = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN_QR });
-const clientLink = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN_LINK });
+const choferCtrl = {};
 
-const reservaCtrl = {};
+// El chofer modifica sus propios datos (perfil Usuario + perfil Chofer).
+choferCtrl.actualizarChofer = async (req, res) => {
+  const {
+    nombre,
+    apellido,
+    email,
+    telefono,
+    activo,
+    password,
+    licenciaConducir,
+    fechaHabilitacion,
+    estadoChofer,
+  } = req.body;
 
-const estadosReservaValidos = [
-  'PENDIENTE',
-  'CONFIRMADA',
-  'CANCELADA',
-  'UTILIZADA',
-  'NO_PRESENTADO',
-];
+  const transaction = await sequelize.transaction();
 
-const cancelarReservaConTransaccion = async (idReserva, transaction) => {
-  const reserva = await Reserva.findByPk(idReserva, {
-    include: ['viaje'],
-    transaction,
-    lock: true,
-  });
+  try {
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [{ model: Usuario, as: 'usuario' }],
+      transaction,
+    });
 
-  if (!reserva) {
-    return { error: { status: 404, body: { mensaje: 'Reserva no encontrada' } } };
+    if (!chofer) {
+      await transaction.rollback();
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    const usuario = chofer.usuario;
+
+    // Solo se actualizan los campos que el cliente mando en el body.
+    if (nombre !== undefined) usuario.nombre = nombre;
+    if (apellido !== undefined) usuario.apellido = apellido;
+    if (email !== undefined) usuario.email = email;
+    if (telefono !== undefined) usuario.telefono = telefono;
+    if (activo !== undefined) usuario.activo = activo;
+
+    // Si mandan "password", se reasigna passwordHash: el hook beforeUpdate
+    // del modelo Usuario se encarga de hashearla con bcrypt automaticamente.
+    if (password !== undefined && password !== '') {
+      usuario.passwordHash = password;
+    }
+
+    await usuario.save({ transaction });
+
+    if (licenciaConducir !== undefined) chofer.licenciaConducir = licenciaConducir;
+    if (fechaHabilitacion !== undefined) chofer.fechaHabilitacion = fechaHabilitacion;
+    if (estadoChofer !== undefined) chofer.estadoChofer = estadoChofer;
+
+    await chofer.save({ transaction });
+
+    await transaction.commit();
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Chofer actualizado correctamente.',
+      usuario: quitarPassword(usuario),
+      chofer,
+    });
+  } catch (error) {
+    await transaction.rollback();
+
+    return res.status(400).json({
+      status: '0',
+      msg: 'No se pudo actualizar el chofer.',
+      error: error.message,
+    });
   }
-
-  if (reserva.estadoReserva === 'CANCELADA') {
-    return { error: { status: 400, body: { mensaje: 'La reserva ya se encuentra cancelada' } } };
-  }
-
-  const viaje = await Viaje.findByPk(reserva.idViaje, {
-    transaction,
-    lock: true,
-  });
-
-  if (!viaje) {
-    return { error: { status: 404, body: { mensaje: 'Viaje de la reserva no encontrado' } } };
-  }
-
-  // Al cancelar se devuelven al viaje los asientos que tenia tomada la reserva.
-  reserva.estadoReserva = 'CANCELADA';
-  viaje.asientosDisponibles += reserva.cantidadAsientos;
-
-  await reserva.save({ transaction });
-  await viaje.save({ transaction });
-
-  return { reserva, viaje };
 };
 
-reservaCtrl.registrarReserva = async (req, res) => {
+// Evita devolver el passwordHash en las respuestas del servidor.
+const quitarPassword = (usuario) => {
+  const usuarioSinPassword = usuario.toJSON();
+  delete usuarioSinPassword.passwordHash;
+
+  return usuarioSinPassword;
+};
+
+const validarUbicacion = (latitud, longitud, precision) => {
+  const latitudNumero = Number(latitud);
+  const longitudNumero = Number(longitud);
+  const precisionNumero = precision !== undefined && precision !== null ? Number(precision) : null;
+
+  if (!Number.isFinite(latitudNumero) || latitudNumero < -90 || latitudNumero > 90) {
+    return { error: 'Latitud no valida.' };
+  }
+
+  if (!Number.isFinite(longitudNumero) || longitudNumero < -180 || longitudNumero > 180) {
+    return { error: 'Longitud no valida.' };
+  }
+
+  if (precisionNumero !== null && (!Number.isFinite(precisionNumero) || precisionNumero < 0)) {
+    return { error: 'Precision no valida.' };
+  }
+
+  return {
+    ubicacion: {
+      latitud: latitudNumero,
+      longitud: longitudNumero,
+      precision: precisionNumero,
+    },
+  };
+};
+
+choferCtrl.registrarChofer = async (req, res) => {
+  const {
+    nombre,
+    apellido,
+    email,
+    passwordHash,
+    telefono,
+    activo,
+    licenciaConducir,
+    estadoChofer,
+    fechaHabilitacion,
+    calificacion,
+  } = req.body;
+
+  const transaction = await sequelize.transaction();
+
   try {
-    const { tipoCanal } = req.query;
-
-    if (!tipoCanal || !['QR', 'LINK', 'EFECTIVO'].includes(tipoCanal)) {
-      return res.status(400).json({
-        mensaje: 'Error de validación',
-        error: "Es obligatorio enviar el parámetro 'tipoCanal' en la URL con el valor 'QR', 'LINK' o 'EFECTIVO'."
-      });
-    }
-
-    const reserva = await Reserva.create(req.body);
-    req.io.emit(`reserva_creada_viaje_${reserva.idViaje}`, {
-      idReserva: reserva.idReserva,
-      idViaje: reserva.idViaje,
-      idPasajero: reserva.idPasajero,
-      cantidadAsientos: reserva.cantidadAsientos,
-      importeTotal: reserva.importeTotal,
-      estadoReserva: reserva.estadoReserva,
-      estadoPago: reserva.estadoPago
-    });
-    const cantidad = parseInt(reserva.cantidadAsientos) || 1;
-    const total = parseFloat(reserva.importeTotal);
-    const precioUnitario = total / cantidad;
-
-    // OPCION 1: Pago en efectivo
-    if (tipoCanal === 'EFECTIVO') {
-      return res.status(201).json({
-        mensaje: 'Reserva creada con éxito para pago en efectivo',
-        reserva: reserva,
-        tipoPago: 'EFECTIVO',
-        url_pago: null,
-        qr_data: null
-      });
-    }
-
-    // OPCIÓN 2: Link de pago
-    if (tipoCanal === 'LINK') {
-      const baseUrl = process.env.NGROK_URL || 'https://grunge-altitude-gratified.ngrok-free.dev';
-      const preferenceInstance = new Preference(clientLink);
-      const preferenceData = {
-        body: {
-          external_reference: String(reserva.idReserva),
-          items: [
-            {
-              title: `Reserva de ${cantidad} asiento(s) - Viaje #${reserva.idViaje}`,
-              quantity: cantidad,
-              unit_price: parseFloat(precioUnitario.toFixed(2)),
-              currency_id: 'ARS'
-            }
-          ],
-          notification_url: `${baseUrl}/api/reservas/webhook`,
-          back_urls: {
-            success: `${baseUrl}/api/reservas/success`,
-            failure: `${baseUrl}/api/reservas/failure`,
-            pending: `${baseUrl}/api/reservas/pending`
-          },
-          auto_return: "approved"
-        }
-      };
-
-      const preferenceResponse = await preferenceInstance.create(preferenceData);
-
-      return res.status(201).json({
-        mensaje: 'Reserva creada con éxito (Link)',
-        reserva: reserva,
-        tipoPago: 'ENLACE',
-        url_pago: preferenceResponse.init_point,
-        qr_data: null
-      });
-    }
-
-    // OPCION 3: QR
-    const qrData = {
-      external_reference: String(reserva.idReserva),
-      title: `Taxi Viaje #${reserva.idViaje} - Reserva #${reserva.idReserva}`,
-      description: `Pago de reserva de taxi - Viaje ID: ${reserva.idViaje}`, 
-      total_amount: total, 
-      items: [
-        {
-          title: `Reserva de ${cantidad} asiento(s) - Taxi`, 
-          description: `Reserva de ${cantidad} asiento(s) para el viaje #${reserva.idViaje}`, 
-          unit_price: parseFloat(precioUnitario.toFixed(2)), 
-          quantity: cantidad, 
-          unit_measure: 'unit',
-          total_amount: total
-        }
-      ]
-    };
-
-    const user_id = '258168003'; // ID de usuario
-    const external_pos_id = 'CAJA001';  // ID de la caja 
-
-    const response = await fetch(`https://api.mercadopago.com/instore/orders/qr/seller/collectors/${user_id}/pos/${external_pos_id}/qrs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN_QR}`,
-        'Content-Type': 'application/json'
+    // Primero se crea el Usuario con los datos comunes.
+    const usuario = await Usuario.create(
+      {
+        nombre,
+        apellido,
+        email,
+        passwordHash,
+        telefono,
+        activo,
+        rol: 'CHOFER',
       },
-      body: JSON.stringify(qrData)
-    });
+      { transaction }
+    );
 
-    const responseMp = await response.json();
-    if (!response.ok) {
-      return res.status(400).json({
-        mensaje: 'Error en la petición a Mercado Pago',
-        error: responseMp.message || 'Error desconocido'
-      });
-    }
+    // Luego se crea el perfil Chofer asociado al Usuario.
+    const chofer = await Chofer.create(
+      {
+        idUsuario: usuario.idUsuario,
+        licenciaConducir,
+        estadoChofer,
+        fechaHabilitacion,
+        calificacion,
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
 
     return res.status(201).json({
-      mensaje: 'Reserva creada con éxito (QR)',
-      reserva: reserva,
-      tipoPago: 'QR',
-      url_pago: null,
-      qr_data: responseMp.qr_data 
+      mensaje: 'Chofer registrado correctamente',
+      usuario: quitarPassword(usuario),
+      chofer,
     });
   } catch (error) {
-    res.status(400).json({
-      mensaje: 'Error al crear reserva',
-      error: error.message
+    await transaction.rollback();
+
+    return res.status(400).json({
+      mensaje: 'No se pudo registrar el chofer',
+      error: error.message,
     });
   }
 };
 
-
-reservaCtrl.recibirNotificacionPago = async (req, res) => {
+choferCtrl.obtenerChoferes = async (req, res) => {
   try {
-    const { topic, type } = req.query;
-    
-    res.status(200).send('OK');  // Respuesta rapida a MercadoPago
-
-    const tipoNotificacion = type || topic || req.body.type; 
-    const resourceId = req.query['data.id'] || req.body.data?.id || req.query.id || req.body.id;  
-
-    // Si llega la orden de compra ( QR In-Store / QR Fijo / QR Dinámico)
-    if (tipoNotificacion === 'topic_merchant_order_wh' || tipoNotificacion === 'merchant_order') {
-      const merchantOrderInstance = new MerchantOrder(clientQR);
-      let ordenInfo;
-      try {
-        ordenInfo = await merchantOrderInstance.get({ merchantOrderId: resourceId });
-      } catch (err) {
-        console.error(`[BACKEND] Error al consultar la Orden en MP:`, err.message);
-        return;
-      }
-
-      if (ordenInfo && (ordenInfo.status === 'closed' || ordenInfo.order_status === 'paid')) {
-        const idReservaLocal = ordenInfo.external_reference;
-
-        if (idReservaLocal) {
-          const reservaLocal = await Reserva.findByPk(idReservaLocal);
-          if (reservaLocal) {
-            if (reservaLocal.estadoPago === 'PAGADO') {
-              return; 
-            }
-
-            reservaLocal.estadoPago = 'PAGADO';
-            reservaLocal.estadoReserva = 'CONFIRMADA';
-            await reservaLocal.save();
-            await reservaLocal.reload();
-            console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Orden.`);
-
-            // Emision en tiempo real via WEBSOCKEt al chofer (CANAL QR)
-            req.io.emit(`pago_confirmado_reserva_${idReservaLocal}`, {
-              idReserva: idReservaLocal,
-              estadoPago: 'PAGADO',
-              estadoReserva: 'CONFIRMADA'
-            });
-            req.io.emit(`pago_actualizado_viaje_${reservaLocal.idViaje}`, {
-              idReserva: reservaLocal.idReserva,
-              idViaje: reservaLocal.idViaje,
-              idPasajero: reservaLocal.idPasajero,
-              estadoPago: reservaLocal.estadoPago,
-              estadoReserva: reservaLocal.estadoReserva
-            });
-          } else {
-            console.log(`[BACKEND] No se encontró la reserva #${idReservaLocal} en la BD.`);
-          }
-        }
-      }
-    } 
-    
-    // Estructura para pagos directos (Links de Pago)
-    else if (tipoNotificacion === 'payment') {
-      const paymentInstanceOnline = new Payment(clientLink); 
-      let pagoInfo;
-      try {
-        pagoInfo = await paymentInstanceOnline.get({ id: resourceId });
-      } catch (err) {
-        console.error(`[BACKEND] Error al consultar el Pago en MP:`, err.message);
-        return;
-      }
-
-      if (pagoInfo && pagoInfo.status === 'approved') {
-        const idReservaLocal = pagoInfo.external_reference;
-        const reservaLocal = await Reserva.findByPk(idReservaLocal);
-        if (reservaLocal) {
-          if (reservaLocal.estadoPago === 'PAGADO') {
-            return; 
-          }
-          reservaLocal.estadoPago = 'PAGADO';
-          reservaLocal.estadoReserva = 'CONFIRMADA';
-          await reservaLocal.save();
-          await reservaLocal.reload();
-          console.log(`[BACKEND] ÉXITO: Reserva #${idReservaLocal} marcada como PAGADA mediante Payment.`);
-
-          // Emision en tiempo real via WEBSOCKEt al chofer (CANAL LINK)
-          req.io.emit(`pago_confirmado_reserva_${idReservaLocal}`, {
-            idReserva: idReservaLocal,
-            estadoPago: 'PAGADO',
-            estadoReserva: 'CONFIRMADA'
-          });
-          req.io.emit(`pago_actualizado_viaje_${reservaLocal.idViaje}`, {
-            idReserva: reservaLocal.idReserva,
-            idViaje: reservaLocal.idViaje,
-            idPasajero: reservaLocal.idPasajero,
-            estadoPago: reservaLocal.estadoPago,
-            estadoReserva: reservaLocal.estadoReserva
-          });
-        }
-      }
-    } else {
-      console.log(`[BACKEND] Notificación ignorada: Tipo de evento no configurado.`);
-    }
-  } catch (error) {
-    console.error('Error crítico en el Webhook:', error.message);
-  }
-};
-
-
-reservaCtrl.generarQrReserva= async (req, res) => {
-  try {
-    const { idReserva } = req.params; 
-
-    // Busqueda de la reserva solicitada 
-    const reserva = await Reserva.findByPk(idReserva);
-    if (!reserva) {
-      return res.status(404).json({
-        mensaje: 'Error de búsqueda',
-        error: `No se encontró ninguna reserva con el ID #${idReserva}`
-      });
-    }
-
-    // Validamos que no intenten cobrar algo que ya se pagó
-    if (reserva.estadoPago === 'PAGADO') {
-      return res.status(400).json({
-        mensaje: 'Validación de pago fallida',
-        error: 'Esta reserva ya ha sido abonada previamente.'
-      });
-    }
-
-    const cantidad = parseInt(reserva.cantidadAsientos) || 1;
-    const total = parseFloat(reserva.importeTotal);
-    const precioUnitario = total / cantidad;
-
-    const qrData = {
-      external_reference: String(reserva.idReserva),
-      title: `Taxi Viaje #${reserva.idViaje} - Reserva #${reserva.idReserva}`,
-      description: `Pago en viaje de reserva existente - Viaje ID: ${reserva.idViaje}`, 
-      total_amount: total, 
-      items: [
-        {
-          title: `Reserva de ${cantidad} asiento(s) - Taxi`, 
-          description: `Reserva de ${cantidad} asiento(s) para el viaje #${reserva.idViaje}`, 
-          unit_price: parseFloat(precioUnitario.toFixed(2)), 
-          quantity: cantidad, 
-          unit_measure: 'unit',
-          total_amount: total
-        }
-      ]
-    };
-
-    const user_id = '258168003'; 
-    const external_pos_id = 'CAJA001';  
-
-    const response = await fetch(`https://api.mercadopago.com/instore/orders/qr/seller/collectors/${user_id}/pos/${external_pos_id}/qrs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN_QR}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(qrData)
-    });
-
-    const responseMp = await response.json();
-    if (!response.ok) {
-      return res.status(400).json({
-        mensaje: 'Error en la petición a Mercado Pago',
-        error: responseMp.message || 'Error desconocido'
-      });
-    }
-
-    req.io.emit(`qr_generado_reserva_${reserva.idReserva}`, {
-      idReserva: reserva.idReserva,
-      idViaje: reserva.idViaje,
-      idPasajero: reserva.idPasajero,
-      qr_data: responseMp.qr_data
-    });
-    return res.status(200).json({
-      mensaje: 'Código QR generado con éxito para el chofer',
-      idReserva: reserva.idReserva,
-      tipoPago: 'QR',
-      qr_data: responseMp.qr_data 
-    });
-
-  } catch (error) {
-    res.status(500).json({ 
-      mensaje: 'Error al generar QR para reserva existente', 
-      error: error.message 
-    });
-  }
-};
-
-
-
-reservaCtrl.registrarPagoEfectivo = async (req, res) => {
-  try {
-    const { idReserva } = req.params; 
-
-    const reserva = await Reserva.findByPk(idReserva);
-
-    if (!reserva) {
-      return res.status(404).json({
-        mensaje: 'Error de búsqueda',
-        error: `No se encontró ninguna reserva con el ID #${idReserva}`
-      });
-    }
-
-    if (reserva.estadoPago === 'PAGADO') {  // Validacion  que no se intente marcar como pagado algo que YA está pagado
-      return res.status(400).json({
-        mensaje: 'Validación de pago fallida',
-        error: 'Esta reserva ya figura como PAGADA en el sistema.'
-      });
-    }
-
-    reserva.estadoPago = 'PAGADO';
-    
-    await reserva.save();
-    req.io.emit(`pago_confirmado_reserva_${reserva.idReserva}`, {
-      idReserva: reserva.idReserva,
-      idViaje: reserva.idViaje,
-      idPasajero: reserva.idPasajero,
-      estadoPago: reserva.estadoPago,
-      estadoReserva: reserva.estadoReserva,
-      tipoPago: 'EFECTIVO'
-    });
-    req.io.emit(`pago_actualizado_viaje_${reserva.idViaje}`, {
-      idReserva: reserva.idReserva,
-      idViaje: reserva.idViaje,
-      idPasajero: reserva.idPasajero,
-      estadoPago: reserva.estadoPago,
-      estadoReserva: reserva.estadoReserva,
-      tipoPago: 'EFECTIVO'
-    });
-    return res.status(200).json({
-      mensaje: 'El pago en efectivo fue registrado con éxito por el chofer',
-      idReserva: reserva.idReserva,
-      estadoPago: reserva.estadoPago,
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      mensaje: 'Error al registrar el pago en efectivo',
-      error: error.message
-    });
-  }
-};
-
-
-
-reservaCtrl.obtenerReservas = async (req, res) => {
-  try {
-    const reservas = await Reserva.findAll({
+    // Trae los choferes junto con los datos del usuario relacionado.
+    const choferes = await Chofer.findAll({
       include: [
         {
-          association: 'pasajero',
-          include: ['usuario']
+          model: Usuario,
+          as: 'usuario',
+          attributes: { exclude: ['passwordHash'] },
         },
-        {
-          association: 'viaje',
-          include: ['chofer', 'auto']
-        }
-      ]
+      ],
     });
 
-    res.status(200).json(reservas);
+    return res.status(200).json(choferes);
   } catch (error) {
-    res.status(500).json({
-      mensaje: 'Error al obtener reservas',
-      error: error.message
-    });
-  }
-};
-
-
-reservaCtrl.cambiarEstadoReserva = async (req, res) => {
-  const estado = req.body.estado || req.body.estadoReserva;
-
-  if (!estadosReservaValidos.includes(estado)) {
-    return res.status(400).json({
-      mensaje: 'Estado de reserva no valido',
-      estadosValidos: estadosReservaValidos,
-    });
-  }
-
-  const transaction = await sequelize.transaction();
-
-  try {
-    if (estado === 'CANCELADA') {
-      const resultado = await cancelarReservaConTransaccion(req.params.idReserva, transaction);
-
-      if (resultado.error) {
-        await transaction.rollback();
-        return res.status(resultado.error.status).json(resultado.error.body);
-      }
-
-      await transaction.commit();
-      return res.status(200).json({
-        mensaje: 'Reserva cancelada correctamente y asientos devueltos al viaje',
-        reserva: resultado.reserva,
-        viaje: resultado.viaje,
-      });
-    }
-
-    const reserva = await Reserva.findByPk(req.params.idReserva, { transaction });
-    if (!reserva) {
-      await transaction.rollback();
-      return res.status(404).json({
-        mensaje: 'Reserva no encontrada',
-      });
-    }
-
-    reserva.estadoReserva = estado;
-    await reserva.save({ transaction });
-    await transaction.commit();
-
-    return res.status(200).json({
-      mensaje: 'Estado de reserva actualizado correctamente',
-      reserva,
-    });
-  } catch (error) {
-    await transaction.rollback();
     return res.status(500).json({
-      mensaje: 'Error al cambiar el estado de la reserva',
+      mensaje: 'Error al obtener los choferes',
       error: error.message,
     });
   }
 };
 
-
-reservaCtrl.cancelarReserva = async (req, res) => {
-  const transaction = await sequelize.transaction();
-
+// Trae los datos completos de un chofer puntual junto con su usuario.
+choferCtrl.obtenerChoferPorId = async (req, res) => {
   try {
-    const resultado = await cancelarReservaConTransaccion(req.params.idReserva, transaction);
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: { exclude: ['passwordHash'] },
+        },
+      ],
+    });
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    return res.status(200).json(chofer);
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al obtener el chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Cambia solo el estado operativo del chofer.
+choferCtrl.cambiarEstadoChofer = async (req, res) => {
+  try {
+    const estadoChofer = req.body.estadoChofer || req.body.estado;
+    const estadosValidos = [
+      'DISPONIBLE',
+      'EN_VIAJE',
+      'DESCANSO',
+      'SUSPENDIDO',
+      'INACTIVO',
+      'ELIMINADO',
+    ];
+
+    if (!estadosValidos.includes(estadoChofer)) {
+      return res.status(400).json({
+        status: '0',
+        msg: 'Estado de chofer no valido.',
+      });
+    }
+
+    const chofer = await Chofer.findByPk(req.params.idChofer);
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    chofer.estadoChofer = estadoChofer;
+    await chofer.save();
+
+    return res.status(200).json({
+      status: '1',
+      msg: 'Estado del chofer actualizado.',
+      chofer,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al actualizar el estado del chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Actualiza la ubicacion actual del chofer.
+choferCtrl.actualizarUbicacionChofer = async (req, res) => {
+  try {
+    const { latitud, longitud, precision } = req.body;
+    const resultado = validarUbicacion(latitud, longitud, precision);
 
     if (resultado.error) {
-      await transaction.rollback();
-      return res.status(resultado.error.status).json(resultado.error.body);
+      return res.status(400).json({
+        status: '0',
+        msg: resultado.error,
+      });
     }
 
-    await transaction.commit();
-
-    req.io.emit(`reserva_cancelada_${reserva.idReserva}`, {
-      idReserva: reserva.idReserva,
-      idViaje: reserva.idViaje,
-      idPasajero: reserva.idPasajero,
-      estadoReserva: reserva.estadoReserva
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [
+        {
+          model: Usuario,
+          as: 'usuario',
+          attributes: { exclude: ['passwordHash'] },
+        },
+      ],
     });
 
-    req.io.emit(`asientos_actualizados_viaje_${viaje.idViaje}`, {
-      idViaje: viaje.idViaje,
-      asientosDisponibles: viaje.asientosDisponibles
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    chofer.latitud = resultado.ubicacion.latitud;
+    chofer.longitud = resultado.ubicacion.longitud;
+    chofer.precision = resultado.ubicacion.precision;
+    await chofer.save();
+
+    const viajeActivo = await Viaje.findOne({
+      where: {
+        idChofer: chofer.idChofer,
+        estado: 'EN_CURSO' 
+      }
     });
-    
+
+    // SOLO EMITIMOS POR SOCKET SI EL CHOFER TIENE UN VIAJE EN CURSO
+    if (viajeActivo) {
+      req.io.emit(`ubicacion_chofer_viaje_${viajeActivo.idViaje}`, {
+        idChofer: chofer.idChofer,
+        idViaje: viajeActivo.idViaje,
+        latitud: chofer.latitud,
+        longitud: chofer.longitud,
+        precision: chofer.precision
+      });
+    }
+
     return res.status(200).json({
-      mensaje: 'Reserva cancelada correctamente y asientos devueltos al viaje',
-      reserva: resultado.reserva,
-      viaje: resultado.viaje,
+      status: '1',
+      msg: 'Ubicacion del chofer actualizada.',
+      chofer,
     });
-
   } catch (error) {
-    await transaction.rollback();
     return res.status(500).json({
-      mensaje: 'Error al cancelar la reserva',
+      status: '0',
+      msg: 'Error al actualizar la ubicacion del chofer.',
       error: error.message,
     });
   }
 };
 
-module.exports = reservaCtrl;
+
+// Trae todos los autos relacionados al chofer por sus turnos.
+choferCtrl.obtenerAutosDelChofer = async (req, res) => {
+  try {
+    const chofer = await Chofer.findByPk(req.params.idChofer, {
+      include: [
+        {
+          model: Auto,
+          as: 'autos',
+        },
+      ],
+    });
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    return res.status(200).json(chofer.autos);
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al obtener los autos del chofer.',
+      error: error.message,
+    });
+  }
+};
+
+// Trae los viajes que se muestran en el boton "Ver Mis Viajes".
+choferCtrl.obtenerViajesDelChofer = async (req, res) => {
+  try {
+    const chofer = await Chofer.findByPk(req.params.idChofer);
+
+    if (!chofer) {
+      return res.status(404).json({
+        status: '0',
+        msg: 'Chofer no encontrado.',
+      });
+    }
+
+    const viajes = await Viaje.findAll({
+      where: { idChofer: req.params.idChofer },
+      include: ['auto', 'reservas'],
+      order: [
+        ['fechaSalida', 'DESC'],
+        ['horaSalida', 'DESC'],
+      ],
+    });
+
+    return res.status(200).json(viajes);
+  } catch (error) {
+    return res.status(500).json({
+      status: '0',
+      msg: 'Error al obtener los viajes del chofer.',
+      error: error.message,
+    });
+  }
+};
+
+module.exports = choferCtrl;

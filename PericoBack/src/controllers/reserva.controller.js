@@ -61,6 +61,15 @@ reservaCtrl.registrarReserva = async (req, res) => {
     }
 
     const reserva = await Reserva.create(req.body);
+    req.io.emit(`reserva_creada_viaje_${reserva.idViaje}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      cantidadAsientos: reserva.cantidadAsientos,
+      importeTotal: reserva.importeTotal,
+      estadoReserva: reserva.estadoReserva,
+      estadoPago: reserva.estadoPago
+    });
     const cantidad = parseInt(reserva.cantidadAsientos) || 1;
     const total = parseFloat(reserva.importeTotal);
     const precioUnitario = total / cantidad;
@@ -208,6 +217,13 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
               estadoPago: 'PAGADO',
               estadoReserva: 'CONFIRMADA'
             });
+            req.io.emit(`pago_actualizado_viaje_${reservaLocal.idViaje}`, {
+              idReserva: reservaLocal.idReserva,
+              idViaje: reservaLocal.idViaje,
+              idPasajero: reservaLocal.idPasajero,
+              estadoPago: reservaLocal.estadoPago,
+              estadoReserva: reservaLocal.estadoReserva
+            });
           } else {
             console.log(`[BACKEND] No se encontró la reserva #${idReservaLocal} en la BD.`);
           }
@@ -244,6 +260,13 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
             idReserva: idReservaLocal,
             estadoPago: 'PAGADO',
             estadoReserva: 'CONFIRMADA'
+          });
+          req.io.emit(`pago_actualizado_viaje_${reservaLocal.idViaje}`, {
+            idReserva: reservaLocal.idReserva,
+            idViaje: reservaLocal.idViaje,
+            idPasajero: reservaLocal.idPasajero,
+            estadoPago: reservaLocal.estadoPago,
+            estadoReserva: reservaLocal.estadoReserva
           });
         }
       }
@@ -318,6 +341,12 @@ reservaCtrl.generarQrReserva= async (req, res) => {
       });
     }
 
+    req.io.emit(`qr_generado_reserva_${reserva.idReserva}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      qr_data: responseMp.qr_data
+    });
     return res.status(200).json({
       mensaje: 'Código QR generado con éxito para el chofer',
       idReserva: reserva.idReserva,
@@ -358,7 +387,22 @@ reservaCtrl.registrarPagoEfectivo = async (req, res) => {
     reserva.estadoPago = 'PAGADO';
     
     await reserva.save();
-
+    req.io.emit(`pago_confirmado_reserva_${reserva.idReserva}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      estadoPago: reserva.estadoPago,
+      estadoReserva: reserva.estadoReserva,
+      tipoPago: 'EFECTIVO'
+    });
+    req.io.emit(`pago_actualizado_viaje_${reserva.idViaje}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      estadoPago: reserva.estadoPago,
+      estadoReserva: reserva.estadoReserva,
+      tipoPago: 'EFECTIVO'
+    });
     return res.status(200).json({
       mensaje: 'El pago en efectivo fue registrado con éxito por el chofer',
       idReserva: reserva.idReserva,
@@ -468,11 +512,24 @@ reservaCtrl.cancelarReserva = async (req, res) => {
 
     await transaction.commit();
 
+    req.io.emit(`reserva_cancelada_${reserva.idReserva}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      estadoReserva: reserva.estadoReserva
+    });
+
+    req.io.emit(`asientos_actualizados_viaje_${viaje.idViaje}`, {
+      idViaje: viaje.idViaje,
+      asientosDisponibles: viaje.asientosDisponibles
+    });
+    
     return res.status(200).json({
       mensaje: 'Reserva cancelada correctamente y asientos devueltos al viaje',
       reserva: resultado.reserva,
       viaje: resultado.viaje,
     });
+
   } catch (error) {
     await transaction.rollback();
     return res.status(500).json({

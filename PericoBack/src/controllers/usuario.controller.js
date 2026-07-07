@@ -312,6 +312,7 @@ usuarioCtrl.login = async (req, res) => {
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         email: usuario.email,
+        telefono: usuario.telefono,
         estadoPasajero: usuario.perfilPasajero.estadoPasajero,
         token: token
       });

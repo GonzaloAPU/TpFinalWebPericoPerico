@@ -3,6 +3,7 @@ require('dotenv').config({
   path: require('path').resolve(__dirname, '../.env'),
 });
 
+// Sequelize es el ORM: traduce modelos JavaScript a tablas y consultas SQL de PostgreSQL.
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'pericoback',
   process.env.DB_USER || 'postgres',

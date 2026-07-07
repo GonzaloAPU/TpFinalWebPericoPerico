@@ -9,8 +9,8 @@ const router = express.Router();
 // Consultar turnos: cualquier usuario logueado.
 router.get('/', authCtrl.verifyToken, turnoChoferCtrl.getTurnos);
 
-// Asignar/editar/borrar turnos de chofer-auto: exclusivo de ADMIN.
-router.post('/', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), turnoChoferCtrl.createTurno);
+// Asignar autos al chofer: ADMIN o CHOFER desde su panel.
+router.post('/', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'CHOFER'), turnoChoferCtrl.createTurno);
 router.put('/:id', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), turnoChoferCtrl.editTurno);
 router.delete('/:id', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), turnoChoferCtrl.deleteTurno);
 

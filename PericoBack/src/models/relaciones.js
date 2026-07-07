@@ -1,5 +1,6 @@
 const sequelize = require('../../config/database');
 
+// Este archivo centraliza asociaciones Sequelize. Si un include falla, revisar primero los alias definidos aca.
 // Modelos base y perfiles de usuario.
 const Usuario = require('./usuario.model');
 const Pasajero = require('./pasajero.model');

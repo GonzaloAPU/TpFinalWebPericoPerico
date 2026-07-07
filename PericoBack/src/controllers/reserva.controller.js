@@ -1,5 +1,6 @@
 const { MercadoPagoConfig, Payment, MerchantOrder, Preference} = require('mercadopago'); 
-const { sequelize, Reserva, Viaje, Pasajero } = require('../models/relaciones');
+const QRCode = require('qrcode');
+const { sequelize, Reserva, Viaje, Pasajero, Chofer } = require('../models/relaciones');
 
 // Inicialización del cliente con Access Token usando variables de entorno (.env)
 const clientQR = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN_QR });
@@ -16,6 +17,7 @@ const estadosReservaValidos = [
 ];
 
 const cancelarReservaConTransaccion = async (idReserva, transaction) => {
+  // Cancelar una reserva devuelve los asientos al viaje dentro de la misma transaccion.
   const reserva = await Reserva.findByPk(idReserva, {
     transaction,
     lock: true,
@@ -49,6 +51,7 @@ const cancelarReservaConTransaccion = async (idReserva, transaction) => {
 };
 
 const emitirReservaCreada = (req, reserva) => {
+  // Eventos usados para que el chofer y el listado del pasajero se actualicen sin recargar.
   if (!req.io) return;
 
   req.io.emit(`reserva_creada_viaje_${reserva.idViaje}`, {
@@ -115,7 +118,8 @@ reservaCtrl.registrarReserva = async (req, res) => {
         });
       }
 
-      if (viaje.estadoViaje !== 'ABIERTO') {
+      // Se permite reservar un viaje publicado o ya iniciado si todavia quedan asientos.
+      if (!['ABIERTO', 'EN_CURSO'].includes(viaje.estadoViaje)) {
         await transaction.rollback();
         return res.status(400).json({
           mensaje: 'El viaje no esta disponible para reservas',
@@ -129,6 +133,7 @@ reservaCtrl.registrarReserva = async (req, res) => {
         });
       }
 
+      // Crear reserva y descontar asientos debe ser atomico para evitar sobreventa.
       reserva = await Reserva.create(req.body, { transaction });
       viaje.asientosDisponibles -= cantidadSolicitada;
       await viaje.save({ transaction });
@@ -169,6 +174,7 @@ reservaCtrl.registrarReserva = async (req, res) => {
 
     // OPCIÓN 2: Link de pago
     if (tipoCanal === 'LINK') {
+      // Link de pago: se crea una preferencia de Mercado Pago y el webhook confirma el pago.
       const baseUrl = process.env.NGROK_URL || 'https://grunge-altitude-gratified.ngrok-free.dev';
       const preferenceInstance = new Preference(clientLink);
       const preferenceData = {
@@ -278,6 +284,7 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
     const resourceId = req.query['data.id'] || req.body.data?.id || req.query.id || req.body.id;  
 
     // Si llega la orden de compra ( QR In-Store / QR Fijo / QR Dinámico)
+    // QR de Mercado Pago notifica como merchant_order.
     if (tipoNotificacion === 'topic_merchant_order_wh' || tipoNotificacion === 'merchant_order') {
       const merchantOrderInstance = new MerchantOrder(clientQR);
       let ordenInfo;
@@ -325,6 +332,7 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
     } 
     
     // Estructura para pagos directos (Links de Pago)
+    // Links de pago notifican como payment.
     else if (tipoNotificacion === 'payment') {
       const paymentInstanceOnline = new Payment(clientLink); 
       let pagoInfo;
@@ -403,10 +411,31 @@ reservaCtrl.generarQrReserva= async (req, res) => {
       });
     }
 
+    if (req.usuario.rol === 'PASAJERO') {
+      const pasajero = await Pasajero.findByPk(reserva.idPasajero);
+      if (!pasajero || pasajero.idUsuario !== req.usuario.idUsuario) {
+        return res.status(403).json({
+          mensaje: 'No tenes permiso para generar el QR de esta reserva',
+        });
+      }
+    }
+
+    if (req.usuario.rol === 'CHOFER') {
+      const viaje = await Viaje.findByPk(reserva.idViaje);
+      const chofer = viaje ? await Chofer.findByPk(viaje.idChofer) : null;
+
+      if (!chofer || chofer.idUsuario !== req.usuario.idUsuario) {
+        return res.status(403).json({
+          mensaje: 'No tenes permiso para generar el QR de esta reserva',
+        });
+      }
+    }
+
     const cantidad = parseInt(reserva.cantidadAsientos) || 1;
     const total = parseFloat(reserva.importeTotal);
     const precioUnitario = total / cantidad;
 
+    // QR dinamico: Mercado Pago devuelve qr_data y el backend tambien genera una imagen base64.
     const qrData = {
       external_reference: String(reserva.idReserva),
       title: `Taxi Viaje #${reserva.idViaje} - Reserva #${reserva.idReserva}`,
@@ -444,17 +473,23 @@ reservaCtrl.generarQrReserva= async (req, res) => {
       });
     }
 
+    const qrImage = responseMp.qr_data
+      ? await QRCode.toDataURL(responseMp.qr_data)
+      : null;
+
     req.io.emit(`qr_generado_reserva_${reserva.idReserva}`, {
       idReserva: reserva.idReserva,
       idViaje: reserva.idViaje,
       idPasajero: reserva.idPasajero,
-      qr_data: responseMp.qr_data
+      qr_data: responseMp.qr_data,
+      qr_image: qrImage
     });
     return res.status(200).json({
       mensaje: 'Código QR generado con éxito para el chofer',
       idReserva: reserva.idReserva,
       tipoPago: 'QR',
-      qr_data: responseMp.qr_data 
+      qr_data: responseMp.qr_data,
+      qr_image: qrImage
     });
 
   } catch (error) {
@@ -497,6 +532,7 @@ reservaCtrl.registrarPagoEfectivo = async (req, res) => {
       });
     }
 
+    // Pago manual del chofer: se marca como pagado y se emiten eventos igual que con Mercado Pago.
     reserva.estadoPago = 'PAGADO';
     
     await reserva.save();

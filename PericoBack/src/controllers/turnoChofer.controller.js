@@ -15,6 +15,16 @@ turnoChoferCtrl.createTurno = async (req, res) => {
       #swagger.responses[400] = { description: 'Error procesando operacion.' }
     */
     try {
+        if (req.usuario.rol !== 'ADMIN') {
+            const chofer = await Chofer.findByPk(req.body.idChofer);
+            if (!chofer || chofer.idUsuario !== req.usuario.idUsuario) {
+                return res.status(403).json({
+                    status: '0',
+                    msg: 'No tenes permiso para asignar autos a este chofer.'
+                });
+            }
+        }
+
         // req.body debe recibir: idAuto, idChofer, fecha, horaInicio, horaFin
         const nuevoTurno = await TurnoChofer.create(req.body);
 

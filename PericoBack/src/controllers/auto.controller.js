@@ -1,5 +1,28 @@
 const Auto = require('./../../src/models/auto.model'); 
+const Chofer = require('./../../src/models/chofer.model');
+const TurnoChofer = require('./../../src/models/turnoChofer');
 const autoCtrl = {};
+
+const validarAutoDelChoferAutenticado = async (req, idAuto) => {
+    if (req.usuario.rol === 'ADMIN') return true;
+
+    const chofer = await Chofer.findOne({
+        where: {
+            idUsuario: req.usuario.idUsuario
+        }
+    });
+
+    if (!chofer) return false;
+
+    const turno = await TurnoChofer.findOne({
+        where: {
+            idChofer: chofer.idChofer,
+            idAuto
+        }
+    });
+
+    return Boolean(turno);
+};
 
 // Obtener todos los autos
 autoCtrl.getAutos = async (req, res) =>{
@@ -87,6 +110,13 @@ autoCtrl.editAuto = async (req, res) => {
     #swagger.responses[404] = { description: 'Auto no encontrado.' }
   */
   try {
+    if (!(await validarAutoDelChoferAutenticado(req, req.params.id))) {
+      return res.status(403).json({
+        status: '0',
+        msg: 'No tenes permiso para modificar este auto.'
+      });
+    }
+
     const [actualizados] = await Auto.update(req.body, {
       where: {
         idAuto: req.params.id
@@ -140,6 +170,10 @@ autoCtrl.changeEstado = async (req, res) => {
         const auto = await Auto.findByPk(idAuto);
         if (!auto) {
             return res.status(404).json({ status: '0', msg: 'Auto no encontrado.' });
+        }
+
+        if (!(await validarAutoDelChoferAutenticado(req, idAuto))) {
+            return res.status(403).json({ status: '0', msg: 'No tenes permiso para modificar este auto.' });
         }
 
         auto.estado = estado;

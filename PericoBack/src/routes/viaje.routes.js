@@ -5,16 +5,17 @@ const authCtrl = require('../controllers/auth.controller');
 const express = require('express');
 const router = express.Router();
 
+// Las rutas definen el contrato HTTP. verifyToken autentica y verificarRol limita acciones sensibles.
 // Consultar viajes: cualquier usuario logueado (el pasajero necesita ver los disponibles).
 router.get('/', authCtrl.verifyToken, viajeCtrl.getViajes);
 router.get('/disponibles', authCtrl.verifyToken, viajeCtrl.getViajesDisponibles);
 router.get('/:id', authCtrl.verifyToken, viajeCtrl.getViaje);
 
-// Actualizar asientos: se dispara al reservar, cualquier logueado puede disparar el flujo.
-router.post('/:id/actualizar-asientos-disponibles', authCtrl.verifyToken, viajeCtrl.actualizarAsientosDisponibles);
+// Actualizar asientos: ADMIN o CHOFER desde el panel (pasajero manual/transeunte).
+router.post('/:id/actualizar-asientos-disponibles', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'CHOFER'), viajeCtrl.actualizarAsientosDisponibles);
 
-// Crear/editar/borrar viajes (asignar chofer y auto): exclusivo de ADMIN.
-router.post('/', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), viajeCtrl.createViaje);
+// Crear viajes: ADMIN o CHOFER desde su panel.
+router.post('/', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'CHOFER'), viajeCtrl.createViaje);
 router.put('/:id', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), viajeCtrl.editViaje);
 router.delete('/:id', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), viajeCtrl.deleteViaje);
 

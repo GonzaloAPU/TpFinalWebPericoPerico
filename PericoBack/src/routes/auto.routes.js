@@ -10,10 +10,10 @@ const router = express.Router();
 router.get('/', authCtrl.verifyToken, autoCtrl.getAutos);
 router.get('/:id', authCtrl.verifyToken, autoCtrl.getAuto);
 
-// Gestion de la flota: exclusivo de ADMIN.
-router.post('/', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN, CHOFER'), autoCtrl.createAuto);
-router.put('/:id', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), autoCtrl.editAuto);
-router.patch('/:id/estado', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), autoCtrl.changeEstado);
+// Gestion de autos: ADMIN o CHOFER desde su panel.
+router.post('/', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'CHOFER'), autoCtrl.createAuto);
+router.put('/:id', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'CHOFER'), autoCtrl.editAuto);
+router.patch('/:id/estado', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'CHOFER'), autoCtrl.changeEstado);
 router.delete('/:id', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN'), autoCtrl.deleteAuto);
 
 //exportamos el modulo de rutas

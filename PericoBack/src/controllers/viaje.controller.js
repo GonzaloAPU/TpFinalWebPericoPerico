@@ -4,8 +4,31 @@ const Auto = require('./../../src/models/auto.model');
 const Chofer = require('./../../src/models/chofer.model'); 
 const Reserva = require('./../../src/models/reserva.model');
 const Usuario = require('./../../src/models/usuario.model');
+const TurnoChofer = require('./../../src/models/turnoChofer');
 
 const viajeCtrl = {};
+
+const validarChoferAutenticado = async (req, idChofer) => {
+    // Evita que un chofer cree o modifique viajes usando el idChofer de otra cuenta.
+    if (req.usuario.rol === 'ADMIN') return true;
+
+    const chofer = await Chofer.findByPk(idChofer);
+    return Boolean(chofer && chofer.idUsuario === req.usuario.idUsuario);
+};
+
+const validarAutoDelChofer = async (req, idChofer, idAuto) => {
+    // El auto debe estar vinculado al chofer mediante TurnoChofer.
+    if (req.usuario.rol === 'ADMIN') return true;
+
+    const turno = await TurnoChofer.findOne({
+        where: {
+            idChofer,
+            idAuto
+        }
+    });
+
+    return Boolean(turno);
+};
 
 // Obtener TODOS los viajes con todas sus relaciones 
 viajeCtrl.getViajes = async (req, res) => {
@@ -81,7 +104,7 @@ viajeCtrl.getViajesDisponibles = async (req, res) => {
     /*
       #swagger.tags = ['Viajes']
       #swagger.summary = 'Buscar viajes disponibles'
-      #swagger.description = 'Viajes ABIERTOS con asientos > 0, filtrados por origen y destino.'
+      #swagger.description = 'Viajes ABIERTOS o EN_CURSO con asientos > 0, filtrados por origen y destino.'
       #swagger.security = [{ "bearerAuth": [] }]
       #swagger.parameters['origen'] = { in: 'query', required: true, type: 'string', description: 'Ciudad de origen.' }
       #swagger.parameters['destino'] = { in: 'query', required: true, type: 'string', description: 'Ciudad de destino.' }
@@ -90,19 +113,29 @@ viajeCtrl.getViajesDisponibles = async (req, res) => {
     */
     try {
         const { origen, destino } = req.query;
+        const origenNormalizado = String(origen || '').trim();
+        const destinoNormalizado = String(destino || '').trim();
 
-        if (!origen || !destino) {
+        if (!origenNormalizado || !destinoNormalizado) {
             return res.status(400).json({
                 status: '0',
                 msg: 'Debe enviar origen y destino.'
             });
         }
 
+        // El pasajero puede reservar viajes publicados o ya iniciados, siempre que queden asientos.
+        // iLike evita que una diferencia de mayusculas/minusculas rompa la busqueda.
         const viajes = await Viaje.findAll({
             where: {
-                origen,
-                destino,
-                estadoViaje: 'ABIERTO',
+                origen: {
+                    [Op.iLike]: origenNormalizado
+                },
+                destino: {
+                    [Op.iLike]: destinoNormalizado
+                },
+                estadoViaje: {
+                    [Op.in]: ['ABIERTO', 'EN_CURSO']
+                },
                 asientosDisponibles: {
                     [Op.gt]: 0
                 }
@@ -167,6 +200,14 @@ viajeCtrl.createViaje = async (req, res) => {
         }
 
         // Un auto no puede estar en más de un viaje EN_CURSO al mismo tiempo
+        if (!(await validarChoferAutenticado(req, idChofer))) {
+            return res.status(403).json({ status: '0', msg: 'No tenes permiso para crear viajes para este chofer.' });
+        }
+
+        if (!(await validarAutoDelChofer(req, idChofer, idAuto))) {
+            return res.status(403).json({ status: '0', msg: 'No tenes permiso para usar este auto.' });
+        }
+
         const autoOcupado = await Viaje.findOne({
             where: {
                 idAuto: idAuto,
@@ -178,6 +219,7 @@ viajeCtrl.createViaje = async (req, res) => {
             return res.status(400).json({ status: '0', msg: 'El auto asignado ya se encuentra en un viaje EN CURSO.' });
         }
 
+        // La capacidad del auto define los asientos iniciales del viaje.
         const asientosIniciales = autoExiste.capacidadAsientos; 
 
         const nuevoViaje = await Viaje.create({
@@ -255,6 +297,7 @@ viajeCtrl.changeEstado = async (req, res) => {
             }
         }
 
+        // Al cambiar estado se notifica a pasajero/chofer por Socket.IO para refrescar las pantallas.
         viaje.estadoViaje = estado;
         await viaje.save();
 
@@ -355,6 +398,13 @@ viajeCtrl.actualizarAsientosDisponibles = async (req, res) => {
 
         if (viaje.auto && nuevosAsientos > viaje.auto.capacidadAsientos) {
             return res.status(400).json({ status: '0', msg: 'Los asientos disponibles no pueden superar la capacidad del auto.' });
+        }
+
+        if (req.usuario.rol !== 'ADMIN') {
+            const chofer = await Chofer.findByPk(viaje.idChofer);
+            if (!chofer || chofer.idUsuario !== req.usuario.idUsuario) {
+                return res.status(403).json({ status: '0', msg: 'No tenes permiso para actualizar los asientos de este viaje.' });
+            }
         }
 
         viaje.asientosDisponibles = nuevosAsientos;

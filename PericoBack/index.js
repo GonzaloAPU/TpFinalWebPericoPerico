@@ -9,6 +9,7 @@ const swaggerFile = require('./swagger_output.json');
 
 var app = express();
 
+// Express maneja las rutas HTTP y Socket.IO comparte el mismo servidor para eventos en tiempo real.
 const server = http.createServer(app); // crear un servidor http envolviendo a express
 
 // Inicializacion de SOCKET.IO con cors permitido para frontend
@@ -22,7 +23,7 @@ const io = new Server(server, {
 app.use(cors({origin : 'http://localhost:4200'}));
 app.use(express.json());
 
-// Permite que los controladores y webhooks puedan usar req.io.emit()
+// Permite que los controladores y webhooks puedan emitir eventos sin importar desde que ruta se ejecuten.
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -40,7 +41,7 @@ app.use('/api/reservas', require('./src/routes/reserva.routes'));
 app.use('/api/usuarios', require('./src/routes/usuario.routes'));
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
-// Escuchador de conexiones en vivo 
+// Socket.IO se usa para sincronizar pantallas: reservas, pagos, asientos, estados de viaje y ubicacion.
 io.on('connection', (socket) => {
   console.log(`[SOCKET] Dispositivo conectado en vivo. ID: ${socket.id}`);
   socket.on('disconnect', () => {
@@ -48,6 +49,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// Sequelize sincroniza modelos con PostgreSQL al iniciar el servidor.
 sequelize.sync({ force: false }) // Cambiar a true si quieres reiniciar las tablas en cada inicio
 
   .then(() => {

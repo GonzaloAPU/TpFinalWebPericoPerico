@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const authCtrl = {} 
  
 authCtrl.verifyToken = async (req, res, next) => { 
+    // JWT protege las rutas privadas: el front envia Authorization: Bearer <token>.
+    // Si el token es valido, el payload queda disponible como req.usuario para los demas controladores.
     // 1. Validar si el header existe antes de hacer split 
     const authHeader = req.headers.authorization; 
     if (!authHeader) { 

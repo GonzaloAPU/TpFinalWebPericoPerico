@@ -20,8 +20,8 @@ router.patch('/:idReserva/estado', authCtrl.verifyToken, authCtrl.verificarRol('
 // Cancelar: ADMIN o el propio PASAJERO dueno de la reserva (se valida adentro del controller).
 router.patch('/:idReserva/cancelar', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'PASAJERO'), reservaCtrl.cancelarReserva);
 
-// Generar QR de la reserva (para mostrar al subir al auto): el pasajero dueno, o ADMIN.
-router.post('/:idReserva/qr', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'PASAJERO'), reservaCtrl.generarQrReserva);
+// Generar QR de la reserva: PASAJERO dueno, CHOFER del viaje, o ADMIN.
+router.post('/:idReserva/qr', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'PASAJERO', 'CHOFER'), reservaCtrl.generarQrReserva);
 
 // Registrar pago en efectivo: lo hace el CHOFER al recibir el pago, o ADMIN.
 router.put('/:idReserva/pago-efectivo', authCtrl.verifyToken, authCtrl.verificarRol('ADMIN', 'CHOFER'), reservaCtrl.registrarPagoEfectivo);

@@ -31,10 +31,10 @@ autoCtrl.getAuto = async (req, res) => {
 // Regristrar un nuevo auto
 autoCtrl.createAuto = async (req, res) =>{
     try{
-        await Auto.create(req.body)
-        res.json({ status: '1', msg: 'Auto guardado.' });
+        const auto = await Auto.create(req.body)
+        res.json({ status: '1', msg: 'Auto guardado.', auto });
     }catch (error) {
-        res.status(400).json({ status: '0', msg: 'Error procesando operacion.' });
+        res.status(400).json({ status: '0', msg: 'Error procesando operacion.', error: error.message });
     }
 }
 

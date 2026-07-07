@@ -19,7 +19,6 @@ viajeCtrl.getViajes = async (req, res) => {
     }
 };
 
-
 // Obtener un viaje específico 
 viajeCtrl.getViaje = async (req, res) => {
     try {

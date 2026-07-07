@@ -294,6 +294,13 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
               estadoPago: 'PAGADO',
               estadoReserva: 'CONFIRMADA'
             });
+            req.io.emit(`pago_actualizado_viaje_${reservaLocal.idViaje}`, {
+              idReserva: reservaLocal.idReserva,
+              idViaje: reservaLocal.idViaje,
+              idPasajero: reservaLocal.idPasajero,
+              estadoPago: reservaLocal.estadoPago,
+              estadoReserva: reservaLocal.estadoReserva
+            });
           } else {
             console.log(`[BACKEND] No se encontró la reserva #${idReservaLocal} en la BD.`);
           }
@@ -330,6 +337,13 @@ reservaCtrl.recibirNotificacionPago = async (req, res) => {
             idReserva: idReservaLocal,
             estadoPago: 'PAGADO',
             estadoReserva: 'CONFIRMADA'
+          });
+          req.io.emit(`pago_actualizado_viaje_${reservaLocal.idViaje}`, {
+            idReserva: reservaLocal.idReserva,
+            idViaje: reservaLocal.idViaje,
+            idPasajero: reservaLocal.idPasajero,
+            estadoPago: reservaLocal.estadoPago,
+            estadoReserva: reservaLocal.estadoReserva
           });
         }
       }
@@ -404,6 +418,12 @@ reservaCtrl.generarQrReserva= async (req, res) => {
       });
     }
 
+    req.io.emit(`qr_generado_reserva_${reserva.idReserva}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      qr_data: responseMp.qr_data
+    });
     return res.status(200).json({
       mensaje: 'Código QR generado con éxito para el chofer',
       idReserva: reserva.idReserva,
@@ -444,7 +464,22 @@ reservaCtrl.registrarPagoEfectivo = async (req, res) => {
     reserva.estadoPago = 'PAGADO';
     
     await reserva.save();
-
+    req.io.emit(`pago_confirmado_reserva_${reserva.idReserva}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      estadoPago: reserva.estadoPago,
+      estadoReserva: reserva.estadoReserva,
+      tipoPago: 'EFECTIVO'
+    });
+    req.io.emit(`pago_actualizado_viaje_${reserva.idViaje}`, {
+      idReserva: reserva.idReserva,
+      idViaje: reserva.idViaje,
+      idPasajero: reserva.idPasajero,
+      estadoPago: reserva.estadoPago,
+      estadoReserva: reserva.estadoReserva,
+      tipoPago: 'EFECTIVO'
+    });
     return res.status(200).json({
       mensaje: 'El pago en efectivo fue registrado con éxito por el chofer',
       idReserva: reserva.idReserva,
@@ -562,6 +597,7 @@ reservaCtrl.cancelarReserva = async (req, res) => {
       reserva: resultado.reserva,
       viaje: resultado.viaje,
     });
+
   } catch (error) {
     await transaction.rollback();
     return res.status(500).json({

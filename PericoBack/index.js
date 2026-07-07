@@ -46,6 +46,7 @@ io.on('connection', (socket) => {
 });
 
 sequelize.sync({ force: false }) // Cambiar a true si quieres reiniciar las tablas en cada inicio
+
   .then(() => {
     console.log('Tablas de PostgreSQL sincronizadas correctamente.');
     server.listen(app.get('port'), () => {

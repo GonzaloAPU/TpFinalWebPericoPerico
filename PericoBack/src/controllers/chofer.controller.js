@@ -301,6 +301,24 @@ choferCtrl.actualizarUbicacionChofer = async (req, res) => {
     chofer.precision = resultado.ubicacion.precision;
     await chofer.save();
 
+    const viajeActivo = await Viaje.findOne({
+      where: {
+        idChofer: chofer.idChofer,
+        estado: 'EN_CURSO' 
+      }
+    });
+
+    // SOLO EMITIMOS POR SOCKET SI EL CHOFER TIENE UN VIAJE EN CURSO
+    if (viajeActivo) {
+      req.io.emit(`ubicacion_chofer_viaje_${viajeActivo.idViaje}`, {
+        idChofer: chofer.idChofer,
+        idViaje: viajeActivo.idViaje,
+        latitud: chofer.latitud,
+        longitud: chofer.longitud,
+        precision: chofer.precision
+      });
+    }
+
     return res.status(200).json({
       status: '1',
       msg: 'Ubicacion del chofer actualizada.',
@@ -314,6 +332,7 @@ choferCtrl.actualizarUbicacionChofer = async (req, res) => {
     });
   }
 };
+
 
 // Trae todos los autos relacionados al chofer por sus turnos.
 choferCtrl.obtenerAutosDelChofer = async (req, res) => {

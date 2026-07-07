@@ -55,10 +55,10 @@ autoCtrl.createAuto = async (req, res) =>{
       #swagger.responses[400] = { description: 'Error procesando operacion.' }
     */
     try{
-        await Auto.create(req.body)
-        res.json({ status: '1', msg: 'Auto guardado.' });
+        const auto = await Auto.create(req.body)
+        res.json({ status: '1', msg: 'Auto guardado.', auto });
     }catch (error) {
-        res.status(400).json({ status: '0', msg: 'Error procesando operacion.' });
+        res.status(400).json({ status: '0', msg: 'Error procesando operacion.', error: error.message });
     }
 }
 

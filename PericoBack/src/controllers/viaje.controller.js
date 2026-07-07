@@ -26,7 +26,6 @@ viajeCtrl.getViajes = async (req, res) => {
     }
 };
 
-
 // Obtener un viaje específico 
 viajeCtrl.getViaje = async (req, res) => {
     /*
@@ -259,9 +258,64 @@ viajeCtrl.changeEstado = async (req, res) => {
         viaje.estadoViaje = estado;
         await viaje.save();
 
-        return res.status(200).json({ status: '1', msg: 'Estado del viaje actualizado.', viaje });
+        const reservasActualizadas = [];
+
+        if (estado === 'CANCELADO' || estado === 'FINALIZADO') {
+            const reservasActivas = await Reserva.findAll({
+                where: {
+                    idViaje: viaje.idViaje,
+                    estadoReserva: {
+                        [Op.in]: ['PENDIENTE', 'CONFIRMADA']
+                    }
+                }
+            });
+
+            for (const reserva of reservasActivas) {
+                reserva.estadoReserva = estado === 'CANCELADO' ? 'CANCELADA' : 'UTILIZADA';
+                await reserva.save();
+                reservasActualizadas.push(reserva);
+
+                if (req.io) {
+                    req.io.emit(`reserva_actualizada_${reserva.idReserva}`, {
+                        idReserva: reserva.idReserva,
+                        idViaje: viaje.idViaje,
+                        estadoReserva: reserva.estadoReserva,
+                        reserva,
+                        viaje
+                    });
+
+                    if (estado === 'CANCELADO') {
+                        req.io.emit(`reserva_cancelada_${reserva.idReserva}`, {
+                            idReserva: reserva.idReserva,
+                            idViaje: viaje.idViaje,
+                            reserva,
+                            viaje
+                        });
+                    }
+                }
+            }
+        }
+
+        const viajeActualizado = await Viaje.findByPk(idViaje, {
+            include: ['chofer', 'auto', 'reservas']
+        });
+
+        if (req.io) {
+            req.io.emit(`viaje_actualizado_${viaje.idViaje}`, {
+                idViaje: viaje.idViaje,
+                estadoViaje: viaje.estadoViaje,
+                viaje: viajeActualizado
+            });
+        }
+
+        return res.status(200).json({
+            status: '1',
+            msg: 'Estado del viaje actualizado.',
+            viaje: viajeActualizado,
+            reservasActualizadas
+        });
     } catch (error) {
-        return res.status(500).json({ status: '0', msg: 'Error al actualizar el estado.' });
+        return res.status(500).json({ status: '0', msg: 'Error al actualizar el estado.', error: error.message });
     }
 };
 
@@ -309,6 +363,14 @@ viajeCtrl.actualizarAsientosDisponibles = async (req, res) => {
         const viajeActualizado = await Viaje.findByPk(idViaje, {
             include: ['chofer', 'auto', 'reservas']
         });
+
+        if (req.io) {
+            req.io.emit(`asientos_actualizados_viaje_${viajeActualizado.idViaje}`, {
+                idViaje: viajeActualizado.idViaje,
+                asientosDisponibles: viajeActualizado.asientosDisponibles,
+                viaje: viajeActualizado
+            });
+        }
 
         return res.status(200).json({
             status: '1',

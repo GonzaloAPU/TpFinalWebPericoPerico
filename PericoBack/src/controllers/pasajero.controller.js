@@ -1,4 +1,4 @@
-const { sequelize, Usuario, Pasajero, Reserva, Viaje } = require('../models/relaciones');
+const { sequelize, Usuario, Pasajero, Reserva, Viaje, Chofer, Auto } = require('../models/relaciones');
 
 const pasajeroCtrl = {};
 
@@ -201,7 +201,23 @@ pasajeroCtrl.obtenerPasajero = async (req, res) => {
             {
               model: Viaje,
               as: 'viaje',
-              include: ['chofer', 'auto', 'usuario'],
+              include: [
+                {
+                  model: Chofer,
+                  as: 'chofer',
+                  include: [
+                    {
+                      model: Usuario,
+                      as: 'usuario',
+                      attributes: { exclude: ['passwordHash'] },
+                    },
+                  ],
+                },
+                {
+                  model: Auto,
+                  as: 'auto',
+                },
+              ],
             },
           ],
         },

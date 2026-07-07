@@ -201,7 +201,7 @@ pasajeroCtrl.obtenerPasajero = async (req, res) => {
             {
               model: Viaje,
               as: 'viaje',
-              include: ['chofer', 'auto'],
+              include: ['chofer', 'auto', 'usuario'],
             },
           ],
         },

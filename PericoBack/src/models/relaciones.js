@@ -11,6 +11,7 @@ const Auto = require('./auto.model');
 const TurnoChofer = require('./turnoChofer.js');
 const Viaje = require('./viaje.model');
 const Reserva = require('./reserva.model');
+const Auditoria = require('./auditoria.model');
 
 // ---------------------------------------------------------------------------
 // Usuario y perfiles
@@ -154,6 +155,35 @@ Reserva.belongsTo(Viaje, {
   onUpdate: 'CASCADE',
 });
 
+// ---------------------------------------------------------------------------
+// Hooks Globales de Auditoría
+// ---------------------------------------------------------------------------
+const registrarLog = async (accion, instance, options) => {
+  try {
+    const tablaAfectada = instance.constructor.name; 
+
+    if (tablaAfectada === 'Auditoria') return; // Evitamos el bucle infinito ignorando la propia tabla de auditoría
+
+    // Captura Del ID dinámicamente dependiendo del modelo que se afectó
+    const registroId = instance.id || instance.idReserva || instance.idUsuario || instance.idPasajero || instance.idChofer || instance.idAuto || 'N/A';
+
+    await Auditoria.create({
+      tablaAfectada,
+      accion,
+      registroId: registroId.toString(),
+      valoresAnteriores: accion !== 'CREATE' ? instance._previousDataValues : null,
+      valoresNuevos: accion !== 'DELETE' ? instance.dataValues : null,
+      usuarioResponsable: options.usuarioResponsable || 'Sistema/Anonimo' 
+    });
+  } catch (error) {
+    console.error('Error en Hook de Auditoría:', error.message);
+  }
+};
+
+sequelize.afterCreate((instance, options) => registrarLog('CREATE', instance, options));
+sequelize.afterUpdate((instance, options) => registrarLog('UPDATE', instance, options));
+sequelize.afterDestroy((instance, options) => registrarLog('DELETE', instance, options));
+
 module.exports = {
   sequelize,
   Usuario,
@@ -164,4 +194,5 @@ module.exports = {
   TurnoChofer,
   Viaje,
   Reserva,
+  Auditoria,
 };

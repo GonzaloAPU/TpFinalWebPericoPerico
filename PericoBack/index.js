@@ -45,7 +45,7 @@ io.on('connection', (socket) => {
   });
 });
 
-sequelize.sync({ force: true })
+sequelize.sync({ force: false })
   .then(() => {
     console.log('Tablas de PostgreSQL sincronizadas correctamente.');
     server.listen(app.get('port'), () => {

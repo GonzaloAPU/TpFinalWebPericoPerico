@@ -192,6 +192,14 @@ viajeCtrl.changeEstado = async (req, res) => {
             return res.status(404).json({ status: '0', msg: 'Viaje no encontrado.' });
         }
 
+        // Solo puede cambiar el estado: un ADMIN, o el chofer asignado a ese viaje.
+        if (req.usuario.rol !== 'ADMIN') {
+            const chofer = await Chofer.findByPk(viaje.idChofer);
+            if (!chofer || chofer.idUsuario !== req.usuario.idUsuario) {
+                return res.status(403).json({ status: '0', msg: 'No tenes permiso para modificar este viaje.' });
+            }
+        }
+
         viaje.estadoViaje = estado;
         await viaje.save();
 

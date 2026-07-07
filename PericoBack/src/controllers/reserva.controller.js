@@ -1,5 +1,5 @@
 const { MercadoPagoConfig, Payment, MerchantOrder, Preference} = require('mercadopago'); 
-const { sequelize, Reserva, Viaje } = require('../models/relaciones');
+const { sequelize, Reserva, Viaje, Pasajero } = require('../models/relaciones');
 
 // Inicialización del cliente con Access Token usando variables de entorno (.env)
 const clientQR = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN_QR });
@@ -459,6 +459,20 @@ reservaCtrl.cancelarReserva = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
+     // Solo puede cancelar: un ADMIN, o el pasajero dueno de la reserva.
+    if (req.usuario.rol !== 'ADMIN') {
+      const reservaExistente = await Reserva.findByPk(req.params.idReserva, { transaction });
+      if (!reservaExistente) {
+        await transaction.rollback();
+        return res.status(404).json({ mensaje: 'Reserva no encontrada' });
+      }
+
+      const pasajero = await Pasajero.findByPk(reservaExistente.idPasajero, { transaction });
+      if (!pasajero || pasajero.idUsuario !== req.usuario.idUsuario) {
+        await transaction.rollback();
+        return res.status(403).json({ mensaje: 'No tenes permiso para cancelar esta reserva' });
+      }
+    }
     const resultado = await cancelarReservaConTransaccion(req.params.idReserva, transaction);
 
     if (resultado.error) {

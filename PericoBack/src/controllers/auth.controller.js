@@ -27,4 +27,23 @@ authCtrl.verifyToken = async (req, res, next) => {
         return res.status(401).json({ message: 'Unauthorized request: Invalid or expired token.' }); 
     } 
 } 
+
+
+// Middleware de autorizacion por rol.
+// Se usa DESPUES de verifyToken, porque necesita req.usuario ya cargado.
+// Uso: authCtrl.verificarRol('ADMIN') o authCtrl.verificarRol('ADMIN', 'CHOFER')
+authCtrl.verificarRol = (...rolesPermitidos) => {
+    return (req, res, next) => {
+        if (!req.usuario) {
+            return res.status(401).json({ message: 'Unauthorized request: No autenticado.' });
+        }
+
+        if (!rolesPermitidos.includes(req.usuario.rol)) {
+            return res.status(403).json({ message: 'No tenes permiso para acceder a este recurso.' });
+        }
+
+        next();
+    };
+};
+
 module.exports = authCtrl; 
